@@ -290,7 +290,10 @@ class MainActivity : ComponentActivity() {
     private fun isListening() = SystemClock.uptimeMillis() < listeningUntil
 
     // ---------------- Konuşma ----------------
+    private val clearSubtitle = Runnable { if (!speaker.speaking) subtitle.text = "" }
+
     private fun say(text: String, e: Emotion? = null) {
+        main.removeCallbacks(clearSubtitle); main.postDelayed(clearSubtitle, 7000L + text.length * 60L)
         askedQuestion = text.trim().endsWith("?")
         if (askedQuestion) { lastRobotQuestion = text; lastRobotQuestionAt = SystemClock.uptimeMillis() }
         log("SÖYLE: $text")
@@ -368,8 +371,7 @@ class MainActivity : ComponentActivity() {
         if (reply.moves.isNotEmpty()) seq.play(*reply.moves.toTypedArray())
         if (reply.fallback && llm?.state == LlmEngine.State.READY) {
             val q = lastRobotQuestion
-            val who = social.context()?.let { "($it) " } ?: ""
-            val ctx = who + if (q != null && SystemClock.uptimeMillis() - lastRobotQuestionAt < 30_000) "(Az önce ben ona şunu sordum: \"$q\") $text" else text
+            val ctx = if (q != null && SystemClock.uptimeMillis() - lastRobotQuestionAt < 30_000) "(Az önce ben ona şunu sordum: \"$q\") $text" else text
             lastRobotQuestion = null
             askLlm(ctx); return
         }
@@ -381,6 +383,7 @@ class MainActivity : ComponentActivity() {
 
     /** Kuralların bilmediği soruları yapay zekâ cevaplar (internetsiz, telefonda) */
     private fun askLlm(question: String) {
+        val who = if (::social.isInitialized) social.context() else null
         val engine = llm ?: return
         if (engine.state != LlmEngine.State.READY) { say("Beynim daha hazır değil.", Emotion.SAD); return }
         if (engine.busy) { say("Bir saniye, hâlâ düşünüyorum.", Emotion.THINKING); return }
@@ -392,7 +395,7 @@ class MainActivity : ComponentActivity() {
         say(listOf("Hmm, bir düşüneyim.", "Dur bakalım, düşünüyorum.", "Güzel soru, düşüneyim.").random())
         val started = SystemClock.uptimeMillis()
         var first = true
-        engine.ask(question,
+        engine.ask(question, startContext = who,
             onSentence = { s ->
                 if (first) { first = false; log("YZ ilk cümle ${(SystemClock.uptimeMillis() - started) / 1000} sn'de"); face.emotion = Emotion.HAPPY }
                 lastSaid = s

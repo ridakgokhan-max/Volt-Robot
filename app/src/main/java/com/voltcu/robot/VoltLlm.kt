@@ -14,7 +14,7 @@ class VoltLlm {
 
     interface Sink { fun onBytes(b: ByteArray): Boolean }
 
-    external fun nativeLoad(path: String, sys: String, threads: Int, nctx: Int): Boolean
+    external fun nativeLoad(path: String, sys: String, threads: Int, nctx: Int, cache: String): Boolean
     external fun nativeGenerate(user: String, maxTokens: Int, sink: Sink, keep: Boolean): Int
     external fun nativeStop()
 
@@ -58,7 +58,10 @@ class LlmEngine(private val modelFile: File, private val onStatus: (String) -> U
         exec.execute {
             val t0 = System.currentTimeMillis()
             val prefix = "<|im_start|>system\n$system<|im_end|>\n"
-            val ok = try { llm.nativeLoad(modelFile.absolutePath, prefix, 4, 1024) } catch (e: Throwable) { false }
+            val cache = java.io.File(modelFile.parentFile, "kisilik-${(prefix + modelFile.length()).hashCode().toUInt().toString(16)}.bin")
+            // eski önbellekleri temizle
+            modelFile.parentFile?.listFiles()?.filter { it.name.startsWith("kisilik-") && it.name != cache.name }?.forEach { it.delete() }
+            val ok = try { llm.nativeLoad(modelFile.absolutePath, prefix, 4, 1024, cache.absolutePath) } catch (e: Throwable) { false }
             val sec = (System.currentTimeMillis() - t0) / 1000
             state = if (ok) State.READY else State.ERROR
             main.post { onStatus(if (ok) "Yapay zekâ hazır (${modelFile.name}, ${sec} sn'de yüklendi)" else "Yapay zekâ yüklenemedi") }
@@ -66,12 +69,14 @@ class LlmEngine(private val modelFile: File, private val onStatus: (String) -> U
     }
 
     /** Soruyu sorar; her tamamlanan cümle onSentence ile gelir. */
-    fun ask(question: String, onSentence: (String) -> Unit, onDone: (Int) -> Unit) {
+    fun ask(question: String, onSentence: (String) -> Unit, onDone: (Int) -> Unit, startContext: String? = null) {
         if (state != State.READY || busy) { onDone(-1); return }
         busy = true
         exec.execute {
             val keep = hasHistory && System.currentTimeMillis() - lastTurnEnd < 90_000
-            val turn = "<|im_start|>user\n$question<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n"
+            // Kişi bilgisi sadece sohbetin başında verilir (her soruda tekrar okumak yavaş)
+            val q = if (!keep && startContext != null) "($startContext) $question" else question
+            val turn = "<|im_start|>user\n$q<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n"
             val prompt = if (keep) "<|im_end|>\n$turn" else turn
             val bytes = java.io.ByteArrayOutputStream()
             var buffer = StringBuilder()

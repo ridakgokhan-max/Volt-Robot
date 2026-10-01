@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 #include <algorithm>
+#include <cstdio>
 #include "llama.h"
 
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, "VoltLLM", __VA_ARGS__)
@@ -52,7 +53,10 @@ static size_t utf8_complete_len(const std::string &s) {
 }
 
 extern "C" JNIEXPORT jboolean JNICALL
-Java_com_voltcu_robot_VoltLlm_nativeLoad(JNIEnv *env, jobject, jstring jpath, jstring jsys, jint threads, jint nctx) {
+Java_com_voltcu_robot_VoltLlm_nativeLoad(JNIEnv *env, jobject, jstring jpath, jstring jsys, jint threads, jint nctx, jstring jcache) {
+    const char *cachec = env->GetStringUTFChars(jcache, nullptr);
+    std::string cache(cachec);
+    env->ReleaseStringUTFChars(jcache, cachec);
     const char *path = env->GetStringUTFChars(jpath, nullptr);
     const char *sysc = env->GetStringUTFChars(jsys, nullptr);
     std::string sys(sysc);
@@ -75,14 +79,41 @@ Java_com_voltcu_robot_VoltLlm_nativeLoad(JNIEnv *env, jobject, jstring jpath, js
     if (!g_ctx) { LOGE("context olusmadi"); return JNI_FALSE; }
     g_vocab = llama_model_get_vocab(g_model);
 
+    // Daha once hesaplanmis kisilik durumu varsa dosyadan oku (acilis cok hizlanir)
+    int64_t t0 = llama_time_us();
+    if (!cache.empty()) {
+        FILE *f = fopen(cache.c_str(), "rb");
+        if (f) {
+            fseek(f, 0, SEEK_END); long n = ftell(f); fseek(f, 0, SEEK_SET);
+            if (n > 0) {
+                g_sys_state.resize((size_t) n);
+                size_t rd = fread(g_sys_state.data(), 1, (size_t) n, f);
+                fclose(f);
+                if (rd == (size_t) n && llama_state_seq_set_data(g_ctx, g_sys_state.data(), g_sys_state.size(), 0) > 0) {
+                    LOGI("hazir (onbellekten): %.1f sn, %ld bayt", (llama_time_us() - t0) / 1e6, n);
+                    return JNI_TRUE;
+                }
+                LOGE("onbellek bozuk, yeniden hesaplaniyor");
+                llama_memory_clear(llama_get_memory(g_ctx), true);
+            } else fclose(f);
+        }
+    }
     // Kisilik tarifini bir kez oku ve hafizada sakla
     std::vector<llama_token> st = tokenize(sys, true);
-    int64_t t0 = llama_time_us();
     if (!decode_all(st)) { LOGE("sistem metni islenemedi"); return JNI_FALSE; }
     size_t sz = llama_state_seq_get_size(g_ctx, 0);
     g_sys_state.resize(sz);
     llama_state_seq_get_data(g_ctx, g_sys_state.data(), sz, 0);
     LOGI("hazir: sistem %d token, %.1f sn, durum %zu bayt", (int) st.size(), (llama_time_us() - t0) / 1e6, sz);
+    if (!cache.empty()) {
+        std::string tmp = cache + ".tmp";
+        FILE *f = fopen(tmp.c_str(), "wb");
+        if (f) {
+            size_t wr = fwrite(g_sys_state.data(), 1, sz, f); fclose(f);
+            if (wr == sz) rename(tmp.c_str(), cache.c_str()); else remove(tmp.c_str());
+            LOGI("kisilik onbellege yazildi");
+        }
+    }
     return JNI_TRUE;
 }
 

@@ -164,6 +164,6 @@ class PeopleMemory(ctx: Context) {
     /** Yapay zekâya verilecek kısa özet */
     fun describe(p: Person): String {
         val f = p.facts.entries.joinToString("; ") { "${it.key}: ${it.value}" }
-        return "Konuşan kişi ${p.name}" + (if (p.owner) " (seni yapan kişi)" else "") + (if (f.isNotEmpty()) ". Onun hakkında bildiklerin: $f" else "")
+        return "Konuşan: ${p.name}" + (if (p.owner) ", seni yapan" else "") + (if (f.isNotEmpty()) ". Bildiklerin: $f" else "")
     }
 }

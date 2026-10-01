@@ -73,7 +73,7 @@ class RuleBrain(private val battery: () -> Int, private val seesFace: () -> Bool
             return Reply("Kollarımı indirdim.", Emotion.NEUTRAL, listOf(Move.LIFT_DOWN to 600L))
 
         // --- Durum ---
-        if (has(t, "uyu", "iyi geceler", "dinlen", "yat artık"))
+        if (has(t, "uyu", "uyku mod", "uykuya geç", "iyi geceler", "dinlen", "yat artık"))
             return Reply(pick("İyi geceler, biraz dinleneceğim.", "Tamam, uyku modundayım."), Emotion.SLEEPY, action = Action.SLEEP)
         if (has(t, "uyan", "günaydın"))
             return Reply(pick("Günaydın! Uyandım!", "Buradayım, uyandım!"), Emotion.SURPRISED, action = Action.WAKE)
