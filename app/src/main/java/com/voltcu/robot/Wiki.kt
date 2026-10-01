@@ -20,6 +20,9 @@ class Wiki(private val file: File) {
     fun open() {
         if (!file.exists()) { status = "dosya yok (${file.path})"; return }
         try {
+            // Kiwix kütüphanesinin yerel parçalarını yükle
+            System.loadLibrary("zim")
+            System.loadLibrary("zim_wrapper")
             archive = org.kiwix.libzim.Archive(file.absolutePath)
             status = "hazır (${file.length() / 1_000_000} MB, ${archive?.articleCount ?: 0} madde)"
         } catch (e: Throwable) {
