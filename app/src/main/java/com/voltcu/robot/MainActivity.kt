@@ -41,6 +41,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var brain: Brain
     private var voice: VoiceInput? = null
     private var llm: LlmEngine? = null
+    private lateinit var personality: Personality
     private var llmStatus = "bekliyor"
     private var tracker: FaceTracker? = null
     private lateinit var body: BodySensors
@@ -89,6 +90,8 @@ class MainActivity : ComponentActivity() {
             if (i.hasExtra("debug")) toggleDebug()
             if (i.hasExtra("listen")) onTap()
             if (i.hasExtra("pet")) onPetted()
+            i.getStringExtra("gesture")?.let { g -> runCatching { face.play(Gesture.valueOf(g)) } }
+            i.getStringExtra("emotion")?.let { e -> runCatching { feel(Emotion.valueOf(e), 3000) } }
             i.getStringExtra("ask")?.let { log("TEST YZ: $it"); askLlm(it) }
             if (i.hasExtra("status")) log("DURUM " + statusText().replace("\n", " | "))
         }
@@ -135,6 +138,20 @@ class MainActivity : ComponentActivity() {
         )
         body = BodySensors(this) { onBodyEvent(it) }
 
+        personality = Personality(object : Personality.Host {
+            override val face get() = this@MainActivity.face
+            override fun now() = SystemClock.uptimeMillis()
+            override fun isFaceVisible() = faceVisible
+            override fun lastFaceSeen() = lastFaceSeen
+            override fun lastInteraction() = lastInteraction
+            override fun isSleeping() = sleeping
+            override fun isBusy() = speaker.speaking || isListening() || llm?.busy == true || seq.isBusy()
+            override fun feel(e: Emotion, ms: Long) { this@MainActivity.feel(e, ms) }
+            override fun mutter(text: String, e: Emotion?) { say(text, e) }
+            override fun move(vararg steps: Pair<Move, Long>) { if (!sleeping) seq.play(*steps) }
+            override fun log(msg: String) { this@MainActivity.log(msg) }
+        })
+
         // Yapay zekâ beyni: telefonda Android/data/com.voltcu.robot/files/models/volt.gguf
         val modelDir = java.io.File(getExternalFilesDir(null), "models").apply { mkdirs() }
         llm = LlmEngine(java.io.File(modelDir, "volt.gguf")) { st -> llmStatus = st; log("YZ: $st") }.also { it.load() }
@@ -145,7 +162,7 @@ class MainActivity : ComponentActivity() {
 
         main.post(tick)
         ContextCompat.registerReceiver(this, testReceiver, IntentFilter("com.voltcu.robot.TEST"), ContextCompat.RECEIVER_EXPORTED)
-        log("Volt başladı v0.5")
+        log("Volt başladı v0.6")
     }
 
     // ---------------- Arayüz ----------------
@@ -229,8 +246,9 @@ class MainActivity : ComponentActivity() {
 
     // ---------------- Duygu ----------------
     private fun baseEmotion(): Emotion = when {
-        sleeping -> Emotion.SLEEPY
+        sleeping -> Emotion.ASLEEP
         isListening() -> Emotion.LISTENING
+        ::personality.isInitialized && personality.mood == Personality.Mood.DROWSY -> Emotion.DROWSY
         else -> Emotion.NEUTRAL
     }
 
@@ -379,7 +397,8 @@ class MainActivity : ComponentActivity() {
         listeningUntil = 0
         seq.cancel()
         face.sleepingZ = true
-        face.emotion = Emotion.SLEEPY
+        face.emotion = Emotion.ASLEEP
+        face.play(Gesture.YAWN)
     }
 
     private fun wakeUp(silent: Boolean = false) {
@@ -458,6 +477,8 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
+            personality.update()
+
             // 3 dakika kimse yoksa uyu
             if (!sleeping && !faceVisible && now - lastInteraction > 180_000 && now - lastFaceSeen > 180_000) goToSleep()
 
@@ -473,7 +494,7 @@ class MainActivity : ComponentActivity() {
             "VAR (${f.count}) x=%.2f y=%.2f boyut=%.2f gülüş=%s".format(f.nx, f.ny, f.size, f.smile?.let { "%.2f".format(it) } ?: "-")
         else "yok"
         return buildString {
-            appendLine("── VOLT SİSTEM TESTİ v0.5 ──")
+            appendLine("── VOLT SİSTEM TESTİ v0.6 ──")
             appendLine("Kamera     : $camStatus  (%.1f fps)".format(tracker?.fps ?: 0f))
             appendLine("Yüz        : $faceLine")
             appendLine("Ses tanıma : $voiceStatus")
@@ -482,6 +503,7 @@ class MainActivity : ComponentActivity() {
             appendLine("Yapay zekâ : $llmStatus${if (llm?.busy == true) " (düşünüyor)" else ""}")
             appendLine("Sensör     : ${if (body.available) "ivme ölçer OK" else "YOK"}  |a|=%.1f  son: ${body.lastEvent}".format(body.magnitude))
             appendLine("Motor      : ${motors.name}  son: $lastMove")
+            appendLine("Ruh hali   : ${personality.mood.label}  son: ${personality.lastAction}")
             appendLine("Takip modu : ${if (followMode) "açık" else "kapalı"}   Uyku: ${if (sleeping) "evet" else "hayır"}")
             appendLine("Pil        : %${batteryPercent()}")
             appendLine("Duydu      : $lastHeard")
