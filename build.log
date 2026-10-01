@@ -1,0 +1,80 @@
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.9/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+> Task :app:buildKotlinToolingMetadata
+> Task :app:checkKotlinGradlePluginConfigurationErrors
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preReleaseBuild UP-TO-DATE
+> Task :app:generateReleaseResValues
+> Task :app:checkReleaseAarMetadata
+> Task :app:mapReleaseSourceSetPaths
+> Task :app:generateReleaseResources
+> Task :app:packageReleaseResources
+> Task :app:createReleaseCompatibleScreenManifests
+> Task :app:extractDeepLinksRelease
+> Task :app:mergeReleaseResources
+> Task :app:parseReleaseLocalResources
+
+> Task :app:processReleaseMainManifest
+/home/runner/work/Volt-Robot/Volt-Robot/app/src/main/AndroidManifest.xml:20:5-47:19 Warning:
+	application@android:icon was tagged at AndroidManifest.xml:20 to replace other declarations but no other declaration present
+/home/runner/work/Volt-Robot/Volt-Robot/app/src/main/AndroidManifest.xml:20:5-47:19 Warning:
+	application@android:theme was tagged at AndroidManifest.xml:20 to replace other declarations but no other declaration present
+
+> Task :app:processReleaseManifest
+> Task :app:javaPreCompileRelease
+> Task :app:extractProguardFiles
+
+> Task :app:configureCMakeRelease[arm64-v8a]
+C/C++: CMAKE_BUILD_TYPE=Release
+
+> Task :app:processReleaseManifestForPackage
+> Task :app:buildCMakeRelease[arm64-v8a]
+> Task :app:mergeReleaseJniLibFolders
+> Task :app:desugarReleaseFileDependencies
+> Task :app:mergeReleaseStartupProfile
+> Task :app:checkReleaseDuplicateClasses
+> Task :app:mergeReleaseArtProfile
+> Task :app:processReleaseResources
+> Task :app:mergeReleaseNativeLibs
+> Task :app:mergeReleaseShaders
+> Task :app:compileReleaseShaders NO-SOURCE
+> Task :app:generateReleaseAssets UP-TO-DATE
+
+> Task :app:stripReleaseDebugSymbols
+Unable to strip the following libraries, packaging them as they are: libjnidispatch.so.
+
+> Task :app:mergeReleaseAssets
+> Task :app:mergeExtDexRelease
+> Task :app:compressReleaseAssets
+> Task :app:extractReleaseVersionControlInfo
+> Task :app:extractReleaseNativeSymbolTables
+> Task :app:collectReleaseDependencies
+> Task :app:optimizeReleaseResources
+> Task :app:sdkReleaseDependencyData
+> Task :app:validateSigningRelease
+> Task :app:writeReleaseAppMetadata
+> Task :app:writeReleaseSigningConfigVersions
+> Task :app:mergeReleaseNativeDebugMetadata
+
+> Task :app:compileReleaseKotlin
+w: file:///home/runner/work/Volt-Robot/Volt-Robot/app/src/main/java/com/voltcu/robot/MainActivity.kt:128:102 'FLAG_SHOW_WHEN_LOCKED: Int' is deprecated. Deprecated in Java
+w: file:///home/runner/work/Volt-Robot/Volt-Robot/app/src/main/java/com/voltcu/robot/MainActivity.kt:128:154 'FLAG_TURN_SCREEN_ON: Int' is deprecated. Deprecated in Java
+
+> Task :app:compileReleaseJavaWithJavac NO-SOURCE
+> Task :app:generateReleaseLintVitalReportModel
+> Task :app:dexBuilderRelease
+> Task :app:mergeReleaseGlobalSynthetics
+> Task :app:processReleaseJavaRes
+> Task :app:mergeReleaseJavaResource
+> Task :app:mergeDexRelease
+> Task :app:compileReleaseArtProfile
+> Task :app:packageRelease
+> Task :app:createReleaseApkListingFileRedirect
+> Task :app:lintVitalAnalyzeRelease
+> Task :app:lintVitalReportRelease
+> Task :app:lintVitalRelease
+> Task :app:assembleRelease
+gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/__run_4-1790889490331.json
+
+BUILD SUCCESSFUL in 2m 20s
+52 actionable tasks: 52 executed
