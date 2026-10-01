@@ -64,7 +64,7 @@ Java_com_voltcu_robot_VoltLlm_nativeLoad(JNIEnv *env, jobject, jstring jpath, js
 
     llama_model_params mp = llama_model_default_params();
     mp.n_gpu_layers = 0;
-    mp.use_mlock = true;   // izin verilirse modeli RAM'de tut
+    mp.load_mode = LLAMA_LOAD_MODE_MMAP_MLOCK;   // izin verilirse modeli RAM'de tut
     g_model = llama_model_load_from_file(path, mp);
     env->ReleaseStringUTFChars(jpath, path);
     env->ReleaseStringUTFChars(jsys, sysc);
