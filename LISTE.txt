@@ -1,0 +1,9 @@
+total 16512
+drwxr-xr-x 2 runner runner    4096 Oct  1 17:22 .
+drwxr-xr-x 4 runner runner    4096 Oct  1 17:22 ..
+-rw-r--r-- 1 runner runner       0 Oct  1 17:22 LISTE.txt
+-rwxr-xr-x 1 runner runner 5237128 Oct  1 17:22 llama-bench
+-rwxr-xr-x 1 runner runner 7337016 Oct  1 17:22 llama-completion
+-rwxr-xr-x 1 runner runner 4299464 Oct  1 17:22 llama-simple
+-rw-r--r-- 1 runner runner   14472 Oct  1 17:22 llama_build.log
+-rw-r--r-- 1 runner runner      71 Oct  1 17:22 llama_version.txt
