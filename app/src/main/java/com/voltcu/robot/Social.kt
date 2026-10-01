@@ -139,8 +139,12 @@ class Social(private val people: PeopleMemory, private val host: Host) {
 
     private fun endDialog() { step = null; newPerson = null; pendingName = ""; qIndex = 0 }
 
-    private fun yes(t: String) = Regex("(?U)\\b(evet|olur|tabii|tabi|tamam|aynen|doğru|he|hı hı|isterim|elbette|tanışalım)\\b").containsMatchIn(t)
-    private fun no(t: String) = Regex("(?U)\\b(hayır|yok|olmaz|istemiyorum|yanlış|değil|hayir)\\b").containsMatchIn(t)
+    // Android 9 düzenli ifadelerde Türkçe harfleri desteklemediği için kelime kelime bakıyoruz
+    private fun words(t: String) = t.split(" ", ",", ".", "!", "?").map { it.trim() }.filter { it.isNotEmpty() }
+    private val yesWords = setOf("evet", "olur", "tabii", "tabi", "tamam", "aynen", "doğru", "he", "hıhı", "isterim", "elbette", "tanışalım", "olsun", "kesinlikle")
+    private val noWords = setOf("hayır", "hayir", "yok", "olmaz", "istemiyorum", "yanlış", "değil", "yanlis")
+    private fun yes(t: String) = words(t).any { it in yesWords } && !no(t)
+    private fun no(t: String) = words(t).any { it in noWords }
 
     /** Tanışma sırasında duyulanı işler */
     fun answer(raw: String) {
@@ -208,7 +212,7 @@ class Social(private val people: PeopleMemory, private val host: Host) {
     }
 
     private val filler = setOf("benim", "adım", "ismim", "ben", "merhaba", "selam", "volt", "bot", "bol", "bal", "adim", "evet",
-        "hayır", "tabii", "tamam", "ki", "ve", "de", "da", "şey", "yani", "bana", "derler", "diyebilirsin", "diye", "seslen", "adı", "ismi")
+        "hayır", "tabii", "tamam", "ki", "ve", "de", "da", "şey", "yani", "bana", "derler", "diyebilirsin", "diye", "seslen", "adı", "ismi", "sadece", "olarak", "bu", "işte", "aslında", "hey", "yok", "değil", "doğru", "yanlış")
 
     private fun extractName(t: String): String? {
         val w = t.split(" ").map { it.trim(',', '.', '!', '?') }.filter { it.length >= 2 && it !in filler }

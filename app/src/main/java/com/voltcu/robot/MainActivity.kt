@@ -315,7 +315,7 @@ class MainActivity : ComponentActivity() {
         // Kendi sesinin yankısını yok say
         if (SystemClock.uptimeMillis() - lastSpeechEnd < 1500 && similar(text, lastSaid)) { log("Yankı yok sayıldı"); return }
         // Tanışma sohbeti sürüyorsa her cevap ona gider ("Volt" gerekmez)
-        if (::social.isInitialized && social.inDialog()) { lastHeard = text; lastInteraction = SystemClock.uptimeMillis(); subtitle.text = "Sen: $text"; social.answer(text); return }
+        if (::social.isInitialized && social.inDialog()) { lastHeard = text; lastInteraction = SystemClock.uptimeMillis(); subtitle.text = "Sen: $text"; try { social.answer(text) } catch (e: Exception) { log("HATA tanışma: $e") }; return }
         val wakeIdx = words.indexOfFirst { isWake(it) }
 
         if (wakeIdx >= 0) {
