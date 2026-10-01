@@ -32,8 +32,8 @@ class Personality(private val host: Host) {
         private set
     var lastAction = "-"
         private set
-    /** false yapılırsa kendi kendine konuşmaz (sadece yüz ve hareket) */
-    var chatty = true
+    /** Boştayken sesli konuşmaz, her şeyi animasyonla gösterir (Kadir'in tercihi) */
+    var chatty = false
 
     private var nextAction = 0L
     private var lastSpoke = 0L
