@@ -9,6 +9,10 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
+import android.util.Log
+import android.content.BroadcastReceiver
+import android.content.Intent
+import android.content.IntentFilter
 import android.view.GestureDetector
 import android.view.Gravity
 import android.view.MotionEvent
@@ -57,12 +61,27 @@ class MainActivity : ComponentActivity() {
     private var lastFace: FaceInfo? = null
     private var petDistance = 0f
     private var lastPetReact = 0L
+    private var lastStatusLog = 0L
 
     private var camStatus = "bekliyor"
     private var voiceStatus = "bekliyor"
     private var ttsStatus = "bekliyor"
     private var lastHeard = "-"
     private var lastSaid = "-"
+
+    private fun log(msg: String) = Log.i("VoltRobot", msg)
+
+    /** Bilgisayardan test komutları (adb): say=metin, debug=1, listen=1 */
+    private val testReceiver = object : BroadcastReceiver() {
+        override fun onReceive(c: Context, i: Intent) {
+            i.getStringExtra("say")?.let { log("TEST komutu: $it"); handleCommand(it) }
+            i.getStringExtra("heard")?.let { log("TEST duyma: $it"); onHeard(it) }
+            if (i.hasExtra("debug")) toggleDebug()
+            if (i.hasExtra("listen")) onTap()
+            if (i.hasExtra("pet")) onPetted()
+            if (i.hasExtra("status")) log("DURUM " + statusText().replace("\n", " | "))
+        }
+    }
 
     private val wakeWords = listOf("volt", "bolt", "vold", "valt", "robot")
 
@@ -95,6 +114,8 @@ class MainActivity : ComponentActivity() {
         if (missing.isEmpty()) { startCamera(); startVoice() } else permLauncher.launch(missing.toTypedArray())
 
         main.post(tick)
+        ContextCompat.registerReceiver(this, testReceiver, IntentFilter("com.voltcu.robot.TEST"), ContextCompat.RECEIVER_EXPORTED)
+        log("Volt başladı v0.2")
     }
 
     // ---------------- Arayüz ----------------
@@ -192,6 +213,7 @@ class MainActivity : ComponentActivity() {
 
     // ---------------- Konuşma ----------------
     private fun say(text: String, e: Emotion? = null) {
+        log("SÖYLE: $text")
         lastSaid = text
         subtitle.text = "Volt: $text"
         if (e != null) feel(e, 1500L + text.length * 60L)
@@ -206,6 +228,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun onHeard(raw: String) {
+        log("DUYDU: $raw (konuşuyor=${speaker.speaking}, dinleme=${isListening()})")
         if (speaker.speaking) return
         val text = raw.lowercase(Locale("tr", "TR"))
         val words = text.split(" ")
@@ -272,6 +295,7 @@ class MainActivity : ComponentActivity() {
 
     // ---------------- Vücut sensörleri ----------------
     private fun onBodyEvent(e: BodyEvent) {
+        log("SENSÖR: ${e.label}")
         lastInteraction = SystemClock.uptimeMillis()
         if (sleeping && e != BodyEvent.PUT_DOWN) wakeUp(silent = true)
         when (e) {
@@ -372,6 +396,7 @@ class MainActivity : ComponentActivity() {
             if (!sleeping && !faceVisible && now - lastInteraction > 180_000 && now - lastFaceSeen > 180_000) goToSleep()
 
             if (debugText.visibility == View.VISIBLE) debugText.text = statusText()
+            if (now - lastStatusLog > 3000) { lastStatusLog = now; log("DURUM " + statusText().replace("\n", " | ")) }
             main.postDelayed(this, 250)
         }
     }
@@ -382,7 +407,7 @@ class MainActivity : ComponentActivity() {
             "VAR (${f.count}) x=%.2f y=%.2f boyut=%.2f gülüş=%s".format(f.nx, f.ny, f.size, f.smile?.let { "%.2f".format(it) } ?: "-")
         else "yok"
         return buildString {
-            appendLine("── VOLT SİSTEM TESTİ v0.1 ──")
+            appendLine("── VOLT SİSTEM TESTİ v0.2 ──")
             appendLine("Kamera     : $camStatus  (%.1f fps)".format(tracker?.fps ?: 0f))
             appendLine("Yüz        : $faceLine")
             appendLine("Ses tanıma : $voiceStatus")
@@ -416,6 +441,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onDestroy() {
         main.removeCallbacksAndMessages(null)
+        try { unregisterReceiver(testReceiver) } catch (_: Exception) {}
         seq.cancel()
         tracker?.release()
         voice?.release()
