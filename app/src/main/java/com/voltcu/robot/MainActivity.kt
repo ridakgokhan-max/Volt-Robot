@@ -93,7 +93,7 @@ class MainActivity : ComponentActivity() {
 
     // Ses modeli "Volt"u çoğu zaman "bot" diye duyuyor, o yüzden benzerleri de kabul
     private val wakeStarts = listOf("volt", "bolt", "vold", "valt", "robot")
-    private val wakeExact = setOf("bot", "vot", "bolt", "volt", "polt", "mot")
+    private val wakeExact = setOf("bot", "vot", "bolt", "volt", "polt", "mot", "bol", "volta", "bold")
     private fun isWake(w: String) = w in wakeExact || wakeStarts.any { w.startsWith(it) }
     private var askedQuestion = false
 
@@ -115,7 +115,7 @@ class MainActivity : ComponentActivity() {
             moveLabel.visibility = if (label == null || debugText.visibility != View.VISIBLE) View.INVISIBLE else View.VISIBLE
         }
         seq = MoveSequencer(motors)
-        brain = RuleBrain { batteryPercent() }
+        brain = RuleBrain({ batteryPercent() }, { faceVisible })
         speaker = Speaker(this,
             onStatus = { ttsStatus = it },
             onStart = { voice?.pause(true) },
@@ -138,7 +138,7 @@ class MainActivity : ComponentActivity() {
 
         main.post(tick)
         ContextCompat.registerReceiver(this, testReceiver, IntentFilter("com.voltcu.robot.TEST"), ContextCompat.RECEIVER_EXPORTED)
-        log("Volt başladı v0.3")
+        log("Volt başladı v0.4")
     }
 
     // ---------------- Arayüz ----------------
@@ -433,7 +433,7 @@ class MainActivity : ComponentActivity() {
             "VAR (${f.count}) x=%.2f y=%.2f boyut=%.2f gülüş=%s".format(f.nx, f.ny, f.size, f.smile?.let { "%.2f".format(it) } ?: "-")
         else "yok"
         return buildString {
-            appendLine("── VOLT SİSTEM TESTİ v0.3 ──")
+            appendLine("── VOLT SİSTEM TESTİ v0.4 ──")
             appendLine("Kamera     : $camStatus  (%.1f fps)".format(tracker?.fps ?: 0f))
             appendLine("Yüz        : $faceLine")
             appendLine("Ses tanıma : $voiceStatus")

@@ -21,7 +21,7 @@ data class Reply(
  */
 interface Brain { fun think(input: String): Reply }
 
-class RuleBrain(private val battery: () -> Int) : Brain {
+class RuleBrain(private val battery: () -> Int, private val seesFace: () -> Boolean = { false }) : Brain {
 
     private val tr = Locale("tr", "TR")
     private fun pick(vararg s: String) = s[Random.nextInt(s.size)]
@@ -90,7 +90,12 @@ class RuleBrain(private val battery: () -> Int) : Brain {
             return Reply(pick("Rica ederim!", "Ne demek, her zaman!"), Emotion.HAPPY)
         if (has(t, "fıkra", "şaka", "güldür", "espri"))
             return Reply(jokes[Random.nextInt(jokes.size)], Emotion.HAPPY)
-        if (has(t, "ne yapabilirsin", "neler yapabilirsin", "yardım"))
+        if (has(t, "görüyor musun", "görebiliyor", "beni görüyor", "görüyon mu", "beni gör"))
+            return if (seesFace()) Reply(pick("Evet, seni görüyorum!", "Tabii, tam karşımdasın!"), Emotion.HAPPY)
+            else Reply("Şu an seni göremiyorum, kameramın önüne gelir misin?", Emotion.SAD)
+        if (has(t, "duyuyor musun", "beni duy", "duydun mu"))
+            return Reply("Evet, seni duyuyorum!", Emotion.HAPPY)
+        if (has(t, "yapabil", "neler yap", "ne yapıyorsun", "yardım"))
             return Reply("Seni görüp takip edebilirim, sohbet ederim, saati ve tarihi söylerim, fıkra anlatırım, dans ederim, zar atarım. Bir de beni sallama, başım dönüyor!", Emotion.HAPPY)
 
         // --- Bilgi ---
