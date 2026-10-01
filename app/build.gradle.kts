@@ -11,9 +11,14 @@ android {
         applicationId = "com.voltcu.robot"
         minSdk = 26
         targetSdk = 34
-        versionCode = 4
-        versionName = "0.4"
-        ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
+        versionCode = 5
+        versionName = "0.5"
+        ndk { abiFilters += listOf("arm64-v8a") }
+        externalNativeBuild {
+            cmake {
+                arguments += listOf("-DANDROID_STL=c++_static", "-DCMAKE_BUILD_TYPE=Release")
+            }
+        }
     }
 
     signingConfigs {
@@ -30,6 +35,14 @@ android {
         getByName("release") {
             isMinifyEnabled = false
             signingConfig = signingConfigs.getByName("volt")
+        }
+    }
+
+    System.getenv("VOLT_NDK_VERSION")?.let { ndkVersion = it }
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+            System.getenv("VOLT_CMAKE_VERSION")?.let { version = it }
         }
     }
 

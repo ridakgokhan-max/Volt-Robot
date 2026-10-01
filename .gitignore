@@ -5,3 +5,4 @@ local.properties
 *.iml
 .idea/
 app/src/main/assets/model-tr/
+app/src/main/cpp/llama.cpp/

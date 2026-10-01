@@ -24,19 +24,27 @@ jobs:
           unzip -q model.zip -d modeltmp
           mv modeltmp/* app/src/main/assets/model-tr
           ls -la app/src/main/assets/model-tr
+      - name: llama.cpp (yapay zeka motoru) indir
+        run: |
+          git clone https://github.com/ggml-org/llama.cpp app/src/main/cpp/llama.cpp
+          cd app/src/main/cpp/llama.cpp && git checkout -q e358d59178377be4c58ba567925e05faadbccb57 && git log -1 --oneline
       - name: Derle
         shell: bash
         run: |
           set -o pipefail
-          gradle assembleDebug --stacktrace --no-daemon 2>&1 | tee build.log
+          export VOLT_NDK_VERSION=$(basename "$ANDROID_NDK_LATEST_HOME")
+          ls "$ANDROID_HOME/cmake" || true
+          export VOLT_CMAKE_VERSION=$(ls "$ANDROID_HOME/cmake" | sort -V | tail -1)
+          echo "NDK=$VOLT_NDK_VERSION CMAKE=$VOLT_CMAKE_VERSION"
+          gradle assembleRelease --stacktrace --no-daemon 2>&1 | tee build.log
       - name: Sonucu builds dalina koy
         if: always()
         shell: bash
         run: |
           mkdir out
           cp build.log out/ 2>/dev/null || echo "log yok" > out/build.log
-          if ls app/build/outputs/apk/debug/*.apk >/dev/null 2>&1; then
-            cp app/build/outputs/apk/debug/*.apk out/VoltRobot.apk
+          if ls app/build/outputs/apk/release/*.apk >/dev/null 2>&1; then
+            cp app/build/outputs/apk/release/*.apk out/VoltRobot.apk
             echo "OK ${GITHUB_SHA}" > out/STATUS
           else
             echo "FAIL ${GITHUB_SHA}" > out/STATUS

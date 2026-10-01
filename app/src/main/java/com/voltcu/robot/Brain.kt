@@ -12,7 +12,9 @@ data class Reply(
     val text: String,
     val emotion: Emotion = Emotion.NEUTRAL,
     val moves: List<Pair<Move, Long>> = emptyList(),
-    val action: Action? = null
+    val action: Action? = null,
+    /** Kurallar bilmiyorsa true: soru yapay zekâya gider */
+    val fallback: Boolean = false
 )
 
 /**
@@ -116,7 +118,7 @@ class RuleBrain(private val battery: () -> Int, private val seesFace: () -> Bool
 
         return Reply(
             pick("Bunu henüz bilmiyorum.", "Anlayamadım, tekrar söyler misin?", "Hmm, bunu daha öğrenmedim."),
-            Emotion.THINKING
+            Emotion.THINKING, fallback = true
         )
     }
 

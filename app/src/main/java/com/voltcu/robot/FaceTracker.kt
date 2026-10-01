@@ -42,6 +42,8 @@ class FaceTracker(
     var fps = 0f
         private set
     private var provider: ProcessCameraProvider? = null
+    /** Yapay zekâ düşünürken işlemciyi boşaltmak için kamerayı dinlendir */
+    @Volatile var paused = false
 
     fun start() {
         val future = ProcessCameraProvider.getInstance(ctx)
@@ -68,6 +70,7 @@ class FaceTracker(
 
     @androidx.annotation.OptIn(ExperimentalGetImage::class)
     private fun analyze(proxy: ImageProxy) {
+        if (paused) { proxy.close(); return }
         val now = SystemClock.uptimeMillis()
         // Saniyede ~10 kare yeter, telefon ısınmasın
         if (now - lastFrame < 90) { proxy.close(); return }

@@ -40,6 +40,8 @@ class MainActivity : ComponentActivity() {
     private lateinit var speaker: Speaker
     private lateinit var brain: Brain
     private var voice: VoiceInput? = null
+    private var llm: LlmEngine? = null
+    private var llmStatus = "bekliyor"
     private var tracker: FaceTracker? = null
     private lateinit var body: BodySensors
 
@@ -87,6 +89,7 @@ class MainActivity : ComponentActivity() {
             if (i.hasExtra("debug")) toggleDebug()
             if (i.hasExtra("listen")) onTap()
             if (i.hasExtra("pet")) onPetted()
+            i.getStringExtra("ask")?.let { log("TEST YZ: $it"); askLlm(it) }
             if (i.hasExtra("status")) log("DURUM " + statusText().replace("\n", " | "))
         }
     }
@@ -122,7 +125,7 @@ class MainActivity : ComponentActivity() {
             onDone = {
                 lastSpeechEnd = SystemClock.uptimeMillis()
                 main.postDelayed({
-                    if (!speaker.speaking) {
+                    if (!speaker.speaking && llm?.busy != true) {
                         voice?.pause(false)
                         // Robot soru sorduysa cevabı "Volt" demeden dinle
                         if (askedQuestion) { askedQuestion = false; startListeningWindow(quiet = true) }
@@ -132,13 +135,17 @@ class MainActivity : ComponentActivity() {
         )
         body = BodySensors(this) { onBodyEvent(it) }
 
+        // Yapay zekâ beyni: telefonda Android/data/com.voltcu.robot/files/models/volt.gguf
+        val modelDir = java.io.File(getExternalFilesDir(null), "models").apply { mkdirs() }
+        llm = LlmEngine(java.io.File(modelDir, "volt.gguf")) { st -> llmStatus = st; log("YZ: $st") }.also { it.load() }
+
         val need = arrayOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO)
         val missing = need.filter { ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED }
         if (missing.isEmpty()) { startCamera(); startVoice() } else permLauncher.launch(missing.toTypedArray())
 
         main.post(tick)
         ContextCompat.registerReceiver(this, testReceiver, IntentFilter("com.voltcu.robot.TEST"), ContextCompat.RECEIVER_EXPORTED)
-        log("Volt başladı v0.4")
+        log("Volt başladı v0.5")
     }
 
     // ---------------- Arayüz ----------------
@@ -293,7 +300,40 @@ class MainActivity : ComponentActivity() {
             null -> {}
         }
         if (reply.moves.isNotEmpty()) seq.play(*reply.moves.toTypedArray())
+        if (reply.fallback && llm?.state == LlmEngine.State.READY) { askLlm(text); return }
         main.postDelayed({ say(reply.text, reply.emotion) }, 150)
+    }
+
+    /** Kuralların bilmediği soruları yapay zekâ cevaplar (internetsiz, telefonda) */
+    private fun askLlm(question: String) {
+        val engine = llm ?: return
+        if (engine.state != LlmEngine.State.READY) { say("Beynim daha hazır değil.", Emotion.SAD); return }
+        if (engine.busy) { say("Bir saniye, hâlâ düşünüyorum.", Emotion.THINKING); return }
+        lastInteraction = SystemClock.uptimeMillis()
+        tracker?.paused = true
+        voice?.pause(true)
+        face.emotion = Emotion.THINKING
+        tempEmotionUntil = SystemClock.uptimeMillis() + 120_000
+        say(listOf("Hmm, bir düşüneyim.", "Dur bakalım, düşünüyorum.", "Güzel soru, düşüneyim.").random())
+        val started = SystemClock.uptimeMillis()
+        var first = true
+        engine.ask(question,
+            onSentence = { s ->
+                if (first) { first = false; log("YZ ilk cümle ${(SystemClock.uptimeMillis() - started) / 1000} sn'de"); face.emotion = Emotion.HAPPY }
+                lastSaid = s
+                askedQuestion = s.endsWith("?")
+                subtitle.text = "Volt: $s"
+                speaker.queue(s)
+                log("SÖYLE(YZ): $s")
+            },
+            onDone = { n ->
+                log("YZ bitti: $n token, ${(SystemClock.uptimeMillis() - started) / 1000} sn")
+                tracker?.paused = false
+                tempEmotionUntil = SystemClock.uptimeMillis() + 1500
+                if (first) say("Hmm, aklıma bir şey gelmedi.", Emotion.SAD)
+                if (!speaker.speaking) voice?.pause(false)
+                lastInteraction = SystemClock.uptimeMillis()
+            })
     }
 
     // ---------------- Dokunma ----------------
@@ -433,12 +473,13 @@ class MainActivity : ComponentActivity() {
             "VAR (${f.count}) x=%.2f y=%.2f boyut=%.2f gülüş=%s".format(f.nx, f.ny, f.size, f.smile?.let { "%.2f".format(it) } ?: "-")
         else "yok"
         return buildString {
-            appendLine("── VOLT SİSTEM TESTİ v0.4 ──")
+            appendLine("── VOLT SİSTEM TESTİ v0.5 ──")
             appendLine("Kamera     : $camStatus  (%.1f fps)".format(tracker?.fps ?: 0f))
             appendLine("Yüz        : $faceLine")
             appendLine("Ses tanıma : $voiceStatus")
             appendLine("Dinleme    : ${if (isListening()) "AÇIK" else "uyandırma kelimesi bekleniyor"}")
             appendLine("Konuşma    : $ttsStatus")
+            appendLine("Yapay zekâ : $llmStatus${if (llm?.busy == true) " (düşünüyor)" else ""}")
             appendLine("Sensör     : ${if (body.available) "ivme ölçer OK" else "YOK"}  |a|=%.1f  son: ${body.lastEvent}".format(body.magnitude))
             appendLine("Motor      : ${motors.name}  son: $lastMove")
             appendLine("Takip modu : ${if (followMode) "açık" else "kapalı"}   Uyku: ${if (sleeping) "evet" else "hayır"}")
@@ -470,6 +511,7 @@ class MainActivity : ComponentActivity() {
         try { unregisterReceiver(testReceiver) } catch (_: Exception) {}
         seq.cancel()
         tracker?.release()
+        llm?.stop()
         voice?.release()
         speaker.release()
         motors.release()

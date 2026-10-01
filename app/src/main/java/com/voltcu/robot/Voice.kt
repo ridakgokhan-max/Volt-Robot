@@ -146,20 +146,37 @@ class Speaker(
         tts.setSpeechRate(1.05f)
         tts.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
             override fun onStart(utteranceId: String?) { main.post { speaking = true; onStart() } }
-            override fun onDone(utteranceId: String?) { main.post { speaking = false; onDone() } }
+            override fun onDone(utteranceId: String?) { main.post { finished() } }
             @Deprecated("Deprecated in Java")
-            override fun onError(utteranceId: String?) { main.post { speaking = false; onDone() } }
+            override fun onError(utteranceId: String?) { main.post { finished() } }
         })
         ok = true
         onStatus("Konuşma hazır (Türkçe)")
     }
 
+    private var pending = 0
+
+    private fun finished() {
+        pending = (pending - 1).coerceAtLeast(0)
+        if (pending == 0) { speaking = false; onDone() }
+    }
+
     fun say(text: String) {
         if (!ok) return
+        pending = 1
+        speaking = true
         tts.speak(text, TextToSpeech.QUEUE_FLUSH, Bundle(), "volt-${counter++}")
     }
 
-    fun stop() { tts.stop(); speaking = false }
+    /** Öncekinin arkasına ekler (yapay zekâ cümle cümle konuşurken) */
+    fun queue(text: String) {
+        if (!ok) return
+        pending++
+        speaking = true
+        tts.speak(text, TextToSpeech.QUEUE_ADD, Bundle(), "volt-${counter++}")
+    }
+
+    fun stop() { tts.stop(); speaking = false; pending = 0 }
 
     fun release() { tts.stop(); tts.shutdown() }
 }

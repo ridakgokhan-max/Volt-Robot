@@ -1,0 +1,23 @@
+cmake_minimum_required(VERSION 3.22.1)
+project(voltllm C CXX)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
+# Mi 6 (Snapdragon 835) = armv8.0: dotprod/i8mm yok, bu yuzden genel ARM kodu
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+set(GGML_NATIVE OFF CACHE BOOL "" FORCE)
+set(GGML_OPENMP OFF CACHE BOOL "" FORCE)
+set(GGML_CPU_ARM_ARCH "armv8-a" CACHE STRING "" FORCE)
+set(LLAMA_OPENSSL OFF CACHE BOOL "" FORCE)
+set(LLAMA_BUILD_COMMON OFF CACHE BOOL "" FORCE)
+set(LLAMA_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(LLAMA_BUILD_TOOLS OFF CACHE BOOL "" FORCE)
+set(LLAMA_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(LLAMA_BUILD_SERVER OFF CACHE BOOL "" FORCE)
+set(LLAMA_BUILD_APP OFF CACHE BOOL "" FORCE)
+
+add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/llama.cpp build-llama)
+
+add_library(voltllm SHARED volt_llm.cpp)
+target_link_libraries(voltllm llama log)
