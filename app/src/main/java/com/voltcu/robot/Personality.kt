@@ -93,52 +93,81 @@ class Personality(private val host: Host) {
 
     private fun act(name: String) { lastAction = name; host.log("KİŞİLİK: ${mood.label} → $name") }
 
-    /** Biri bakıyor ama konuşmuyor */
-    private fun watched(now: Long) {
-        nextAction = now + r(7000, 14000)
-        when (Random.nextInt(9)) {
-            0 -> { host.face.play(if (chance(.5f)) Gesture.WINK_LEFT else Gesture.WINK_RIGHT); host.feel(Emotion.HAPPY, 1200); act("göz kırptı") }
-            1 -> { host.face.play(Gesture.GIGGLE); host.feel(Emotion.HAPPY, 1300); act("kıkırdadı") }
-            2 -> { host.feel(Emotion.SHY, 2500); act("utandı") }
-            3 -> { host.face.play(Gesture.HEART_BEAT); host.feel(Emotion.LOVE, 1600); act("kalp gözler") }
-            4 -> { host.feel(Emotion.CURIOUS, 2500); host.move(Move.HEAD_UP to 300L); act("merakla baktı") }
-            5 -> { host.feel(Emotion.PROUD, 2200); host.move(Move.LIFT_UP to 300L, Move.LIFT_DOWN to 300L); act("hava attı") }
-            6 -> {
-                if (speak(now, 120_000, "Ne yapıyorsun?", "Benimle oyun oynar mısın?", "Sıkıldım biraz, bir şey sorsana!", "Bugün nasıl geçti?", e = Emotion.CURIOUS)) act("laf attı")
-                else { host.face.play(Gesture.NOD); act("başını salladı") }
-            }
-            7 -> { host.face.play(Gesture.SQUINT_STARE); host.feel(Emotion.SUSPICIOUS, 2000); act("şüpheyle süzdü") }
-            else -> { host.feel(Emotion.EXCITED, 1500); host.move(Move.TURN_LEFT to 200L, Move.TURN_RIGHT to 200L); act("heyecanla kıpırdandı") }
-        }
+    /** Bir davranış: adı, yüz duygusu, göz hareketi, gövde hareketi */
+    private class B(val name: String, val e: Emotion? = null, val ms: Long = 2200, val g: Gesture? = null,
+                    val moves: List<Pair<Move, Long>> = emptyList(), val weight: Int = 1)
+
+    private var lastName = ""
+    private val recentNames = ArrayDeque<String>()
+
+    /** Ağırlıklı rastgele seçim; son 4 davranışı tekrar etmez */
+    private fun pickAndPlay(list: List<B>) {
+        val pool = list.filter { it.name !in recentNames }.ifEmpty { list }
+        var total = pool.sumOf { it.weight }
+        var x = Random.nextInt(total)
+        val b = pool.first { x -= it.weight; x < 0 }
+        b.g?.let { host.face.play(it) }
+        b.e?.let { host.feel(it, b.ms) }
+        if (b.moves.isNotEmpty()) host.move(*b.moves.toTypedArray())
+        recentNames.addLast(b.name); while (recentNames.size > 4) recentNames.removeFirst()
+        act(b.name)
     }
+
+    private val watchedList = listOf(
+        B("göz kırptı", Emotion.HAPPY, 1200, Gesture.WINK_LEFT, weight = 2),
+        B("sağ gözünü kırptı", Emotion.MISCHIEVOUS, 1500, Gesture.WINK_RIGHT),
+        B("kıkırdadı", Emotion.HAPPY, 1300, Gesture.GIGGLE, weight = 2),
+        B("utandı", Emotion.SHY, 2500, weight = 2),
+        B("kalp gözlerle baktı", Emotion.HEART_EYES, 2200, Gesture.HEART_BEAT),
+        B("yavaşça göz kırptı (sevgi)", Emotion.CUTE, 2000, Gesture.BLINK_SLOW, weight = 2),
+        B("merakla baktı", Emotion.CURIOUS, 2500, null, listOf(Move.HEAD_UP to 300L)),
+        B("hava attı", Emotion.PROUD, 2200, null, listOf(Move.LIFT_UP to 300L, Move.LIFT_DOWN to 300L)),
+        B("sevinçten zıpladı", Emotion.JOY, 1800, Gesture.JUMP, listOf(Move.LIFT_UP to 200L, Move.LIFT_DOWN to 200L)),
+        B("şüpheyle süzdü", Emotion.SUSPICIOUS, 2000, Gesture.SQUINT_STARE),
+        B("yan gözle baktı", Emotion.MISCHIEVOUS, 2000, Gesture.SIDE_EYE),
+        B("yüzünü taradı", Emotion.FOCUSED, 1800, Gesture.SCAN),
+        B("başını salladı", Emotion.HAPPY, 1000, Gesture.NOD),
+        B("heyecanla kıpırdandı", Emotion.EXCITED, 1500, Gesture.WIGGLE, listOf(Move.TURN_LEFT to 200L, Move.TURN_RIGHT to 200L)),
+        B("hayran hayran baktı", Emotion.STARSTRUCK, 2000),
+        B("çift göz kırptı", Emotion.CUTE, 900, Gesture.DOUBLE_BLINK)
+    )
+
+    private val aloneList = listOf(
+        B("etrafa bakındı", null, 0, Gesture.LOOK_AROUND, listOf(Move.TURN_LEFT to 500L, Move.TURN_RIGHT to 900L, Move.TURN_LEFT to 400L), 3),
+        B("bir şeye göz attı", Emotion.CURIOUS, 2000, Gesture.PEEK, listOf(Move.TURN_RIGHT to 400L, Move.FORWARD to 300L), 2),
+        B("sıkıldı", Emotion.BORED, 4000, null, listOf(Move.HEAD_DOWN to 400L), 2),
+        B("iç çekti", Emotion.BORED, 2000, Gesture.SIGH),
+        B("gözlerini devirdi", Emotion.UNIMPRESSED, 1800, Gesture.ROLL_EYES),
+        B("hayallere daldı", Emotion.THINKING, 3000, Gesture.LOOK_UP_THINK, listOf(Move.HEAD_UP to 400L)),
+        B("gerindi", null, 0, Gesture.STRETCH, listOf(Move.LIFT_UP to 500L, Move.LIFT_DOWN to 500L)),
+        B("içinden şarkı söyledi", Emotion.MUSIC, 3500, Gesture.WIGGLE),
+        B("hapşırdı", Emotion.SURPRISED, 1500, Gesture.SNEEZE),
+        B("bir şeyi inceledi", Emotion.FOCUSED, 2500, Gesture.SCAN, listOf(Move.FORWARD to 300L)),
+        B("kendi kendine dans etti", Emotion.MUSIC, 3000, Gesture.CELEBRATE, listOf(Move.TURN_LEFT to 300L, Move.TURN_RIGHT to 300L, Move.LIFT_UP to 250L, Move.LIFT_DOWN to 250L)),
+        B("kafası karıştı", Emotion.CONFUSED, 2500, Gesture.SHAKE),
+        B("şaşı baktı (kendi kendine şaka)", Emotion.CUTE, 1500, Gesture.CROSS_EYED),
+        B("sistemini kontrol etti", Emotion.FOCUSED, 1500, Gesture.GLITCH),
+        B("kendi etrafında döndü", Emotion.JOY, 1600, Gesture.SPIN, listOf(Move.TURN_LEFT to 1200L)),
+        B("üşüdü", Emotion.NERVOUS, 1500, Gesture.SHIVER),
+        B("kendine güldü", Emotion.LAUGH, 1600, Gesture.BOUNCE_HAPPY)
+    )
+
+    private val drowsyList = listOf(
+        B("esnedi", null, 0, Gesture.YAWN, weight = 2),
+        B("uyukladı, irkildi", Emotion.DROWSY, 2500, Gesture.NOD_OFF, weight = 3),
+        B("uykulu uykulu bakındı", null, 0, Gesture.LOOK_AROUND),
+        B("yavaşça göz kırptı", null, 0, Gesture.BLINK_SLOW),
+        B("iç çekti", null, 0, Gesture.SIGH)
+    )
+
+    /** Biri bakıyor ama konuşmuyor */
+    private fun watched(now: Long) { nextAction = now + r(7000, 14000); pickAndPlay(watchedList) }
 
     /** Kimse yok, oyalanıyor */
-    private fun alone(now: Long) {
-        nextAction = now + r(5000, 12000)
-        when (Random.nextInt(12)) {
-            0, 1 -> { host.face.play(Gesture.LOOK_AROUND); host.move(Move.TURN_LEFT to 500L, Move.TURN_RIGHT to 900L, Move.TURN_LEFT to 400L); act("etrafa bakındı") }
-            2 -> { host.face.play(Gesture.PEEK); host.feel(Emotion.CURIOUS, 2000); host.move(Move.TURN_RIGHT to 400L, Move.FORWARD to 300L); act("bir şeye göz attı") }
-            3 -> { host.feel(Emotion.BORED, 4000); host.move(Move.HEAD_DOWN to 400L); speak(now, 90_000, "Hıh… sıkıldım.", "Of…", "Kimse yok mu?"); act("sıkıldı") }
-            4 -> { host.face.play(Gesture.ROLL_EYES); host.feel(Emotion.BORED, 1500); act("gözlerini devirdi") }
-            5 -> { host.feel(Emotion.THINKING, 3500); host.move(Move.HEAD_UP to 400L); act("hayallere daldı") }
-            6 -> { host.face.play(Gesture.STRETCH); host.move(Move.LIFT_UP to 500L, Move.LIFT_DOWN to 500L); act("gerindi") }
-            7 -> { if (speak(now, 60_000, "Dı dı dım… dı dı dı dım…", "Bip bop, bip bop…", "La la la…", e = Emotion.HAPPY)) act("mırıldandı") else { host.face.play(Gesture.NOD); act("ritim tuttu") } }
-            8 -> { host.face.play(Gesture.SNEEZE); host.feel(Emotion.SURPRISED, 1500); speak(now, 45_000, "Hapşu!"); act("hapşırdı") }
-            9 -> { host.face.play(Gesture.SQUINT_STARE); host.feel(Emotion.SUSPICIOUS, 2500); host.move(Move.FORWARD to 300L); act("bir şeyi inceledi") }
-            10 -> { host.feel(Emotion.EXCITED, 2500); host.move(Move.TURN_LEFT to 300L, Move.TURN_RIGHT to 300L, Move.LIFT_UP to 250L, Move.LIFT_DOWN to 250L); act("kendi kendine dans etti") }
-            else -> { host.feel(Emotion.CONFUSED, 2500); host.face.play(Gesture.SHAKE); act("kafası karıştı") }
-        }
-    }
+    private fun alone(now: Long) { nextAction = now + r(5000, 12000); pickAndPlay(aloneList) }
 
     /** Uzun süre yalnız: uykusu geliyor */
-    private fun drowsy(now: Long) {
-        nextAction = now + r(6000, 11000)
-        when (Random.nextInt(4)) {
-            0 -> { host.face.play(Gesture.YAWN); speak(now, 60_000, "Ahhh… uykum geldi."); act("esnedi") }
-            1, 2 -> { host.face.play(Gesture.NOD_OFF); act("uyukladı, irkildi") }
-            else -> { host.face.play(Gesture.LOOK_AROUND); act("uykulu uykulu bakındı") }
-        }
-    }
+    private fun drowsy(now: Long) { nextAction = now + r(6000, 11000); pickAndPlay(drowsyList) }
 
     /** Uyurken: nefes alır, ara sıra uykusunda konuşur */
     private fun asleep(now: Long) {

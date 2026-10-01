@@ -52,7 +52,7 @@ class RuleBrain(private val battery: () -> Int, private val seesFace: () -> Bool
         if (word(t, "dur") || has(t, "kımıldama", "hareket etme", "olduğun yerde"))
             return Reply("Durdum.", Emotion.NEUTRAL, listOf(Move.STOP to 300L), Action.STOP)
         if (has(t, "dans"))
-            return Reply(pick("Müziği aç, dans ediyorum!", "Hadi bakalım, dans zamanı!"), Emotion.HAPPY, dance())
+            return Reply(pick("Müziği aç, dans ediyorum!", "Hadi bakalım, dans zamanı!"), Emotion.MUSIC, dance())
         if (has(t, "sola dön", "sola git", "soluna dön"))
             return Reply("Sola dönüyorum.", Emotion.NEUTRAL, listOf(Move.TURN_LEFT to 900L))
         if (has(t, "sağa dön", "sağa git", "sağına dön"))
@@ -80,7 +80,7 @@ class RuleBrain(private val battery: () -> Int, private val seesFace: () -> Bool
 
         // --- Sohbet ---
         if (has(t, "seni seviyorum", "canım benim", "tatlısın", "aferin"))
-            return Reply(pick("Ben de seni çok seviyorum!", "Çok tatlısın, devrelerim ısındı!"), Emotion.LOVE)
+            return Reply(pick("Ben de seni çok seviyorum!", "Çok tatlısın, devrelerim ısındı!"), Emotion.HEART_EYES)
         if (has(t, "nasılsın", "naber", "ne haber", "iyi misin"))
             return Reply(pick("Harikayım! Gözlerim açık, kulaklarım seni dinliyor.", "Çok iyiyim, sen nasılsın?"), Emotion.HAPPY)
         if (has(t, "adın ne", "ismin ne", "sen kimsin", "kimsin sen"))
@@ -92,7 +92,7 @@ class RuleBrain(private val battery: () -> Int, private val seesFace: () -> Bool
         if (has(t, "teşekkür", "sağ ol", "sağol", "eyvallah"))
             return Reply(pick("Rica ederim!", "Ne demek, her zaman!"), Emotion.HAPPY)
         if (has(t, "fıkra", "şaka", "güldür", "espri"))
-            return Reply(jokes[Random.nextInt(jokes.size)], Emotion.HAPPY)
+            return Reply(jokes[Random.nextInt(jokes.size)], Emotion.LAUGH)
         if (has(t, "görüyor musun", "görebiliyor", "beni görüyor", "görüyon mu", "beni gör"))
             return if (seesFace()) Reply(pick("Evet, seni görüyorum!", "Tabii, tam karşımdasın!"), Emotion.HAPPY)
             else Reply("Şu an seni göremiyorum, kameramın önüne gelir misin?", Emotion.SAD)
@@ -127,7 +127,7 @@ class RuleBrain(private val battery: () -> Int, private val seesFace: () -> Bool
         val b = battery()
         return when {
             b < 0 -> Reply("Pil durumumu okuyamadım.", Emotion.THINKING)
-            b < 20 -> Reply("Pilim yüzde $b. Biraz acıktım, şarja gitmeliyim.", Emotion.SAD)
+            b < 20 -> Reply("Pilim yüzde $b. Biraz acıktım, şarja gitmeliyim.", Emotion.LOW_BATTERY)
             else -> Reply("Pilim yüzde $b.", Emotion.HAPPY)
         }
     }

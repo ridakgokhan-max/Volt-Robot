@@ -71,6 +71,8 @@ class MainActivity : ComponentActivity() {
     private var lastPetReact = 0L
     private var lastStatusLog = 0L
     private var lastSocialTick = 0L
+    private var lowBattery = false
+    private var lastBatteryCheck = 0L
     private var lastSpeechEnd = 0L
     private var lastMove = "-"
 
@@ -101,6 +103,7 @@ class MainActivity : ComponentActivity() {
             if (i.hasExtra("people")) log("KİŞİLER: " + people.people.joinToString(" | ") { p -> "${p.name} (sahibi=${p.owner}, ${p.samples.size} örnek, ${p.visits} ziyaret) ${p.facts}" })
             if (i.hasExtra("forget_all")) { people.people.toList().forEach { people.remove(it) }; log("KİŞİLER silindi") }
             i.getStringExtra("wiki")?.let { q -> val tp = wiki?.topicOf(q) ?: q; log("TEST VİKİ: $q → konu '$tp'"); askWiki(tp, q) }
+            if (i.hasExtra("showcase")) showcase()
             i.getStringExtra("ask")?.let { log("TEST YZ: $it"); askLlm(it) }
             if (i.hasExtra("status")) log("DURUM " + statusText().replace("\n", " | "))
         }
@@ -195,7 +198,7 @@ class MainActivity : ComponentActivity() {
 
         main.post(tick)
         ContextCompat.registerReceiver(this, testReceiver, IntentFilter("com.voltcu.robot.TEST"), ContextCompat.RECEIVER_EXPORTED)
-        log("Volt başladı v0.9")
+        log("Volt başladı v1.0")
     }
 
     // ---------------- Arayüz ----------------
@@ -287,6 +290,7 @@ class MainActivity : ComponentActivity() {
     // ---------------- Duygu ----------------
     private fun baseEmotion(): Emotion = when {
         sleeping -> Emotion.ASLEEP
+        lowBattery -> Emotion.LOW_BATTERY
         isListening() -> Emotion.LISTENING
         ::personality.isInitialized && personality.mood == Personality.Mood.DROWSY -> Emotion.DROWSY
         else -> Emotion.NEUTRAL
@@ -370,6 +374,7 @@ class MainActivity : ComponentActivity() {
         lastInteraction = SystemClock.uptimeMillis()
         subtitle.text = "Sen: $text"
         if (social.intercept(text)) return
+        if (text.contains("ifadelerini göster") || text.contains("yüzlerini göster") || text.contains("duygularını göster")) { showcase(); return }
         val reply = brain.think(text)
         when (reply.action) {
             Action.SLEEP -> { say(reply.text, reply.emotion); main.postDelayed({ goToSleep() }, 2500); return }
@@ -395,9 +400,35 @@ class MainActivity : ComponentActivity() {
         main.postDelayed({ say(reply.text, reply.emotion) }, 150)
     }
 
+    /** Tüm duygu ve hareketleri sırayla gösterir ("Volt, ifadelerini göster") */
+    private fun showcase() {
+        val names = mapOf(
+            Emotion.NEUTRAL to "normal", Emotion.HAPPY to "mutlu", Emotion.JOY to "neşeli", Emotion.LAUGH to "gülüyor",
+            Emotion.EXCITED to "heyecanlı", Emotion.STARSTRUCK to "hayran", Emotion.HEART_EYES to "aşık", Emotion.LOVE to "sevgi dolu",
+            Emotion.CUTE to "sevimli", Emotion.SHY to "utangaç", Emotion.PROUD to "gururlu", Emotion.MUSIC to "şarkı söylüyor",
+            Emotion.CURIOUS to "meraklı", Emotion.THINKING to "düşünceli", Emotion.FOCUSED to "odaklanmış", Emotion.MISCHIEVOUS to "yaramaz",
+            Emotion.SUSPICIOUS to "şüpheli", Emotion.CONFUSED to "kafası karışık", Emotion.SURPRISED to "şaşkın", Emotion.LISTENING to "dinliyor",
+            Emotion.BORED to "sıkılmış", Emotion.UNIMPRESSED to "etkilenmemiş", Emotion.ANNOYED to "sinirli", Emotion.ANGRY to "kızgın",
+            Emotion.SAD to "üzgün", Emotion.CRY to "ağlıyor", Emotion.NERVOUS to "gergin", Emotion.SCARED to "korkmuş",
+            Emotion.RELIEVED to "rahatlamış", Emotion.DIZZY to "başı dönmüş", Emotion.DEAD to "bayılmış", Emotion.LOW_BATTERY to "pili bitiyor",
+            Emotion.DROWSY to "uykulu", Emotion.SLEEPY to "çok uykulu", Emotion.ASLEEP to "uyuyor"
+        )
+        val gestures = Gesture.values().toList()
+        var t = 300L
+        for ((e, n) in names) {
+            main.postDelayed({ feel(e, 2300); subtitle.text = "Duygu: $n" }, t); t += 2300
+        }
+        for (g in gestures) {
+            main.postDelayed({ face.emotion = Emotion.NEUTRAL; tempEmotionUntil = SystemClock.uptimeMillis() + g.ms + 400; face.play(g); subtitle.text = "Hareket: ${g.name.lowercase()}" }, t); t += g.ms + 500
+        }
+        main.postDelayed({ subtitle.text = ""; feel(Emotion.PROUD, 2000) }, t)
+        log("GÖSTERİ: ${names.size} duygu, ${gestures.size} hareket, ${t / 1000} sn")
+    }
+
     /** Vikipedi'den cevap: bulursa okur, bulamazsa yapay zekâya sorar */
     private fun askWiki(topic: String, original: String) {
-        face.emotion = Emotion.THINKING
+        face.emotion = Emotion.FOCUSED
+        face.play(Gesture.SCAN)
         tempEmotionUntil = SystemClock.uptimeMillis() + 15_000
         val started = SystemClock.uptimeMillis()
         wikiExec.execute {
@@ -428,7 +459,8 @@ class MainActivity : ComponentActivity() {
         tracker?.paused = true
         tracker?.stop()   // kamerayı tamamen kapat: işlemci ve ısı yapay zekâya kalsın
         voice?.pause(true)
-        face.emotion = Emotion.THINKING
+        face.emotion = Emotion.FOCUSED
+        face.play(Gesture.LOOK_UP_THINK)
         tempEmotionUntil = SystemClock.uptimeMillis() + 120_000
         say(listOf("Hmm, bir düşüneyim.", "Dur bakalım, düşünüyorum.", "Güzel soru, düşüneyim.").random())
         val started = SystemClock.uptimeMillis()
@@ -464,16 +496,18 @@ class MainActivity : ComponentActivity() {
     private fun onBoop() {
         lastInteraction = SystemClock.uptimeMillis()
         if (sleeping) wakeUp(silent = true)
-        say(listOf("Hey, gıdıklanıyorum!", "Burnum o benim!", "Hi hi!").random(), Emotion.HAPPY)
+        face.play(Gesture.BOOP)
+        say(listOf("Hey, gıdıklanıyorum!", "Burnum o benim!", "Hi hi!").random(), Emotion.LAUGH)
     }
 
     private fun onPetted() {
         val now = SystemClock.uptimeMillis()
         lastInteraction = now
-        if (now - lastPetReact < 3000) { feel(Emotion.LOVE, 2000); return }
+        if (now - lastPetReact < 3000) { feel(Emotion.HEART_EYES, 2000); face.play(Gesture.BLINK_SLOW); return }
         lastPetReact = now
         if (sleeping) { feel(Emotion.LOVE, 2000); return }
-        say(listOf("Çok hoşuma gidiyor!", "Mırr… yani, bip bip!", "Biraz daha sev beni!").random(), Emotion.LOVE)
+        face.play(Gesture.BLINK_SLOW)
+        say(listOf("Çok hoşuma gidiyor!", "Mırr… yani, bip bip!", "Biraz daha sev beni!").random(), Emotion.HEART_EYES)
     }
 
     // ---------------- Vücut sensörleri ----------------
@@ -482,10 +516,10 @@ class MainActivity : ComponentActivity() {
         lastInteraction = SystemClock.uptimeMillis()
         if (sleeping && e != BodyEvent.PUT_DOWN) wakeUp(silent = true)
         when (e) {
-            BodyEvent.SHAKEN -> { seq.cancel(); say(listOf("Başım döndü!", "Dur, dur, sallama beni!").random(), Emotion.DIZZY) }
-            BodyEvent.LIFTED -> { seq.cancel(); say(listOf("Beni nereye götürüyorsun?", "Uçuyorum!").random(), Emotion.SURPRISED) }
-            BodyEvent.PUT_DOWN -> if (!sleeping) say("Oh, yere bastım.", Emotion.HAPPY)
-            BodyEvent.FREEFALL -> { seq.cancel(); say("Aaaa düşüyorum!", Emotion.SCARED) }
+            BodyEvent.SHAKEN -> { seq.cancel(); face.play(Gesture.SPIN); say(listOf("Başım döndü!", "Dur, dur, sallama beni!").random(), Emotion.DEAD) }
+            BodyEvent.LIFTED -> { seq.cancel(); face.play(Gesture.JUMP); say(listOf("Beni nereye götürüyorsun?", "Uçuyorum!").random(), Emotion.STARSTRUCK) }
+            BodyEvent.PUT_DOWN -> if (!sleeping) { face.play(Gesture.SIGH); say("Oh, yere bastım.", Emotion.RELIEVED) }
+            BodyEvent.FREEFALL -> { seq.cancel(); face.play(Gesture.SHIVER); say("Aaaa düşüyorum!", Emotion.SCARED) }
             BodyEvent.UPSIDE_DOWN -> say("Dünya ters döndü! Beni düzeltir misin?", Emotion.DIZZY)
         }
     }
@@ -504,6 +538,7 @@ class MainActivity : ComponentActivity() {
         sleeping = false
         face.sleepingZ = false
         lastInteraction = SystemClock.uptimeMillis()
+        face.play(Gesture.STRETCH)
         feel(Emotion.SURPRISED, 1200)
         if (!silent) say("Uyandım! Buradayım.")
     }
@@ -577,6 +612,11 @@ class MainActivity : ComponentActivity() {
             }
 
             personality.update()
+            if (now - lastBatteryCheck > 30_000) {
+                lastBatteryCheck = now
+                val bm = getSystemService(Context.BATTERY_SERVICE) as BatteryManager
+                lowBattery = batteryPercent() in 0..14 && !bm.isCharging
+            }
             if (now - lastSocialTick > 1000) { lastSocialTick = now; social.tick() }
 
             // 3 dakika kimse yoksa uyu
@@ -594,7 +634,7 @@ class MainActivity : ComponentActivity() {
             "VAR (${f.count}) x=%.2f y=%.2f boyut=%.2f gülüş=%s".format(f.nx, f.ny, f.size, f.smile?.let { "%.2f".format(it) } ?: "-")
         else "yok"
         return buildString {
-            appendLine("── VOLT SİSTEM TESTİ v0.9 ──")
+            appendLine("── VOLT SİSTEM TESTİ v1.0 ──")
             appendLine("Kamera     : $camStatus  (%.1f fps)".format(tracker?.fps ?: 0f))
             appendLine("Yüz        : $faceLine")
             appendLine("Ses tanıma : $voiceStatus")

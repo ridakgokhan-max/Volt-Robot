@@ -11,8 +11,8 @@ android {
         applicationId = "com.voltcu.robot"
         minSdk = 26
         targetSdk = 34
-        versionCode = 14
-        versionName = "0.9.1"
+        versionCode = 15
+        versionName = "1.0"
         ndk { abiFilters += listOf("arm64-v8a") }
         externalNativeBuild {
             cmake {

@@ -95,7 +95,7 @@ class Social(private val people: PeopleMemory, private val host: Host) {
         if (step != null && !host.isBusy() && now - stepAskedAt > 25_000) {
             host.log("Tanışma yarıda kaldı")
             endDialog()
-            if (host.faceVisible()) host.say("Neyse, sonra tanışırız.", Emotion.SAD)
+            if (host.faceVisible()) host.say("Neyse, sonra tanışırız.", Emotion.UNIMPRESSED)
         }
     }
 
@@ -119,7 +119,7 @@ class Social(private val people: PeopleMemory, private val host: Host) {
         p.lastSeen = now
         people.save()
         host.log("SELAMLADI: ${p.name} (${p.visits}. ziyaret)")
-        host.say(part.joinToString(" "), if (p.owner) Emotion.LOVE else Emotion.HAPPY)
+        host.say(part.joinToString(" "), if (p.owner) Emotion.HEART_EYES else Emotion.JOY)
     }
 
     private fun startMeeting() {
@@ -185,7 +185,7 @@ class Social(private val people: PeopleMemory, private val host: Host) {
                     host.say(listOf("Güzel!", "Ooo, harika.", "Not ettim!").random() + " " + questions[qIndex].ask, Emotion.HAPPY)
                 } else {
                     endDialog()
-                    host.say("Seni artık tanıyorum ${p.name}! Bir dahaki sefere seni görünce hatırlayacağım.", Emotion.LOVE)
+                    host.say("Seni artık tanıyorum ${p.name}! Bir dahaki sefere seni görünce hatırlayacağım.", Emotion.STARSTRUCK)
                 }
             }
             null -> {}
@@ -248,7 +248,7 @@ class Social(private val people: PeopleMemory, private val host: Host) {
                 return true
             }
             t.contains("beni unut") -> {
-                if (p != null) { people.remove(p); current = null; host.say("Tamam ${p.name}, seni hafızamdan sildim. Biraz üzüldüm ama.", Emotion.SAD) }
+                if (p != null) { people.remove(p); current = null; host.say("Tamam ${p.name}, seni hafızamdan sildim. Biraz üzüldüm ama.", Emotion.CRY) }
                 else host.say("Zaten seni tanımıyorum.", Emotion.CONFUSED)
                 return true
             }
