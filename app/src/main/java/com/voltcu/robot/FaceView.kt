@@ -26,7 +26,7 @@ enum class Emotion {
 enum class EyeShape { RECT, ARC, CHEVRON, STAR, HEART, CROSS, LINE, ROUND }
 
 /** Gözlerin etrafındaki efektler */
-object Fx {
+object EyeFx {
     const val TEARS = 1; const val SWEAT = 2; const val SPARKLE = 4; const val NOTES = 8
     const val ANGER = 16; const val BATTERY = 32; const val SCANLINE = 64; const val STARS = 128; const val BLUSH = 256
 }
@@ -78,22 +78,22 @@ class FaceView(context: Context) : View(context) {
         Emotion.EXCITED -> P(.33f, .50f, 0f, 0f, .45f, 0xFF4CFFDF.toInt(), bounce = 1f)
         Emotion.SHY -> P(.27f, .38f, .1f, -10f, .35f, 0xFFFF8FB8.toInt(), biasX = -.7f, biasY = .6f)
         Emotion.SUSPICIOUS -> P(.31f, .40f, .40f, 0f, 0f, 0xFFE8B23A.toInt(), bottom = .30f, biasX = .5f)
-        Emotion.PROUD -> P(.32f, .40f, .25f, -6f, .4f, 0xFF39E6A0.toInt(), biasY = -.3f, fx = Fx.SPARKLE)
-        Emotion.JOY -> P(.32f, .40f, 0f, 0f, 0f, 0xFF3CF5D6.toInt(), shape = EyeShape.ARC, bounce = .4f, fx = Fx.BLUSH)
-        Emotion.LAUGH -> P(.30f, .36f, 0f, 0f, 0f, 0xFF3CF5D6.toInt(), shape = EyeShape.CHEVRON, bounce = 1f, fx = Fx.TEARS)
-        Emotion.STARSTRUCK -> P(.34f, .50f, 0f, 0f, 0f, 0xFFFFE15A.toInt(), shape = EyeShape.STAR, pulse = 1f, fx = Fx.SPARKLE)
-        Emotion.HEART_EYES -> P(.34f, .48f, 0f, 0f, 0f, 0xFFFF5FA8.toInt(), shape = EyeShape.HEART, pulse = 1f, fx = Fx.BLUSH)
-        Emotion.DEAD -> P(.30f, .40f, 0f, 0f, 0f, 0xFFB0B0B0.toInt(), shape = EyeShape.CROSS, wobble = .4f, fx = Fx.STARS)
+        Emotion.PROUD -> P(.32f, .40f, .25f, -6f, .4f, 0xFF39E6A0.toInt(), biasY = -.3f, fx = EyeFx.SPARKLE)
+        Emotion.JOY -> P(.32f, .40f, 0f, 0f, 0f, 0xFF3CF5D6.toInt(), shape = EyeShape.ARC, bounce = .4f, fx = EyeFx.BLUSH)
+        Emotion.LAUGH -> P(.30f, .36f, 0f, 0f, 0f, 0xFF3CF5D6.toInt(), shape = EyeShape.CHEVRON, bounce = 1f, fx = EyeFx.TEARS)
+        Emotion.STARSTRUCK -> P(.34f, .50f, 0f, 0f, 0f, 0xFFFFE15A.toInt(), shape = EyeShape.STAR, pulse = 1f, fx = EyeFx.SPARKLE)
+        Emotion.HEART_EYES -> P(.34f, .48f, 0f, 0f, 0f, 0xFFFF5FA8.toInt(), shape = EyeShape.HEART, pulse = 1f, fx = EyeFx.BLUSH)
+        Emotion.DEAD -> P(.30f, .40f, 0f, 0f, 0f, 0xFFB0B0B0.toInt(), shape = EyeShape.CROSS, wobble = .4f, fx = EyeFx.STARS)
         Emotion.UNIMPRESSED -> P(.32f, .40f, 0f, 0f, 0f, 0xFF20B49C.toInt(), shape = EyeShape.LINE, biasX = .3f)
-        Emotion.CRY -> P(.29f, .42f, .25f, -24f, 0f, 0xFF4FA3FF.toInt(), biasY = .25f, fx = Fx.TEARS, jitter = .2f)
-        Emotion.NERVOUS -> P(.25f, .36f, .1f, -10f, 0f, 0xFF8FE8FF.toInt(), jitter = .4f, fx = Fx.SWEAT)
-        Emotion.FOCUSED -> P(.31f, .40f, .35f, 4f, 0f, 0xFF39C6FF.toInt(), bottom = .2f, fx = Fx.SCANLINE)
+        Emotion.CRY -> P(.29f, .42f, .25f, -24f, 0f, 0xFF4FA3FF.toInt(), biasY = .25f, fx = EyeFx.TEARS, jitter = .2f)
+        Emotion.NERVOUS -> P(.25f, .36f, .1f, -10f, 0f, 0xFF8FE8FF.toInt(), jitter = .4f, fx = EyeFx.SWEAT)
+        Emotion.FOCUSED -> P(.31f, .40f, .35f, 4f, 0f, 0xFF39C6FF.toInt(), bottom = .2f, fx = EyeFx.SCANLINE)
         Emotion.MISCHIEVOUS -> P(.30f, .42f, .30f, 14f, .3f, 0xFFB87CFF.toInt(), lS = 1.1f, rS = .75f, biasX = .4f)
-        Emotion.MUSIC -> P(.32f, .40f, 0f, 0f, 0f, teal, shape = EyeShape.ARC, bounce = 1f, fx = Fx.NOTES)
-        Emotion.LOW_BATTERY -> P(.30f, .34f, .5f, 0f, 0f, 0xFFFF9A3C.toInt(), biasY = .4f, fx = Fx.BATTERY, pulse = .6f)
-        Emotion.CUTE -> P(.30f, .40f, 0f, 0f, 0f, 0xFF3FF0D0.toInt(), shape = EyeShape.ROUND, fx = Fx.BLUSH)
-        Emotion.ANNOYED -> P(.31f, .40f, .45f, 18f, 0f, 0xFFFF7A50.toInt(), bottom = .15f, biasX = -.4f, fx = Fx.ANGER)
-        Emotion.RELIEVED -> P(.32f, .40f, 0f, 0f, 0f, 0xFF3CF5D6.toInt(), shape = EyeShape.ARC, biasY = .2f, fx = Fx.SWEAT)
+        Emotion.MUSIC -> P(.32f, .40f, 0f, 0f, 0f, teal, shape = EyeShape.ARC, bounce = 1f, fx = EyeFx.NOTES)
+        Emotion.LOW_BATTERY -> P(.30f, .34f, .5f, 0f, 0f, 0xFFFF9A3C.toInt(), biasY = .4f, fx = EyeFx.BATTERY, pulse = .6f)
+        Emotion.CUTE -> P(.30f, .40f, 0f, 0f, 0f, 0xFF3FF0D0.toInt(), shape = EyeShape.ROUND, fx = EyeFx.BLUSH)
+        Emotion.ANNOYED -> P(.31f, .40f, .45f, 18f, 0f, 0xFFFF7A50.toInt(), bottom = .15f, biasX = -.4f, fx = EyeFx.ANGER)
+        Emotion.RELIEVED -> P(.32f, .40f, 0f, 0f, 0f, 0xFF3CF5D6.toInt(), shape = EyeShape.ARC, biasY = .2f, fx = EyeFx.SWEAT)
     }
 
     var emotion: Emotion = Emotion.NEUTRAL
@@ -424,7 +424,7 @@ class FaceView(context: Context) : View(context) {
 
     private fun drawEffects(c: Canvas, vw: Float, vh: Float, tSec: Float, flags: Int) {
         val col = eyePaint.color
-        if (flags and Fx.TEARS != 0) {
+        if (flags and EyeFx.TEARS != 0) {
             fxPaint.color = 0xFF6FC3FF.toInt()
             for ((i, x) in listOf(eyeL, eyeR).withIndex()) {
                 val a = ((tSec * 0.8f + i * 0.5f) % 1f)
@@ -433,17 +433,17 @@ class FaceView(context: Context) : View(context) {
                 drop(c, x + (if (i == 0) -eyeW * .3f else eyeW * .3f), y, vh * 0.022f)
             }
         }
-        if (flags and Fx.SWEAT != 0) {
+        if (flags and EyeFx.SWEAT != 0) {
             fxPaint.color = 0xFF9FDCFF.toInt(); val a = (tSec * 0.5f) % 1f
             fxPaint.alpha = (230 * (1f - a * .6f)).toInt()
             drop(c, eyeR + eyeW * .7f, eyeY - eyeH * .6f + a * vh * .08f, vh * 0.03f)
         }
-        if (flags and Fx.BLUSH != 0) {
+        if (flags and EyeFx.BLUSH != 0) {
             fxPaint.color = 0x66FF6FA8; 
             c.drawOval(eyeL - eyeW * .55f, eyeY + eyeH * .55f, eyeL + eyeW * .15f, eyeY + eyeH * .8f, fxPaint)
             c.drawOval(eyeR - eyeW * .15f, eyeY + eyeH * .55f, eyeR + eyeW * .55f, eyeY + eyeH * .8f, fxPaint)
         }
-        if (flags and Fx.SPARKLE != 0 || fx.party) {
+        if (flags and EyeFx.SPARKLE != 0 || fx.party) {
             for (i in 0 until 6) {
                 val a = ((tSec * 0.9f + i * 0.17f) % 1f)
                 fxPaint.color = if (fx.party) listOf(0xFFFFD25A, 0xFFFF5FA8, 0xFF5AD1FF, 0xFF7CFF8A)[i % 4].toInt() else col
@@ -453,7 +453,7 @@ class FaceView(context: Context) : View(context) {
                 sparkle(c, x, y, vh * 0.025f * (0.5f + bell(a)))
             }
         }
-        if (flags and Fx.NOTES != 0) {
+        if (flags and EyeFx.NOTES != 0) {
             zPaint.color = col; zPaint.textSize = vh * 0.09f
             for (i in 0..1) {
                 val a = ((tSec * 0.5f + i * 0.5f) % 1f)
@@ -462,7 +462,7 @@ class FaceView(context: Context) : View(context) {
             }
             zPaint.color = 0xFF1FA894.toInt()
         }
-        if (flags and Fx.ANGER != 0) {
+        if (flags and EyeFx.ANGER != 0) {
             strokePaint.color = 0xFFFF4A3A.toInt(); strokePaint.strokeWidth = vh * 0.012f
             val x = eyeR + eyeW * .75f; val y = eyeY - eyeH * .75f; val s = vh * 0.035f * (1f + 0.15f * sin(tSec * 8))
             for (k in 0 until 4) {
@@ -470,7 +470,7 @@ class FaceView(context: Context) : View(context) {
                 c.drawLine(x + cos(a) * s * .4f, y + sin(a) * s * .4f, x + cos(a) * s, y + sin(a) * s, strokePaint)
             }
         }
-        if (flags and Fx.BATTERY != 0) {
+        if (flags and EyeFx.BATTERY != 0) {
             val bw = vw * 0.08f; val bh = vh * 0.07f; val x = vw * 0.5f - bw / 2; val y = vh * 0.12f
             strokePaint.color = 0xFFFF9A3C.toInt(); strokePaint.strokeWidth = vh * 0.008f
             c.drawRoundRect(x, y, x + bw, y + bh, 6f, 6f, strokePaint)
@@ -478,13 +478,13 @@ class FaceView(context: Context) : View(context) {
             c.drawRect(x + bw, y + bh * .3f, x + bw + bw * .08f, y + bh * .7f, fxPaint)
             c.drawRect(x + bw * .1f, y + bh * .2f, x + bw * .25f, y + bh * .8f, fxPaint)
         }
-        val scanP = if (fx.scan >= 0) fx.scan else if (flags and Fx.SCANLINE != 0) (tSec * 0.7f) % 1f else -1f
+        val scanP = if (fx.scan >= 0) fx.scan else if (flags and EyeFx.SCANLINE != 0) (tSec * 0.7f) % 1f else -1f
         if (scanP >= 0) {
             fxPaint.color = col; fxPaint.alpha = 160
             val y = eyeY - eyeH / 2 + eyeH * scanP
             c.drawRect(eyeL - eyeW / 2 - 6, y - 3, eyeR + eyeW / 2 + 6, y + 3, fxPaint)
         }
-        if (flags and Fx.STARS != 0) {
+        if (flags and EyeFx.STARS != 0) {
             fxPaint.color = 0xFFFFE15A.toInt(); fxPaint.alpha = 230
             for (i in 0..2) {
                 val a = tSec * 2.5f + i * 2.1f
