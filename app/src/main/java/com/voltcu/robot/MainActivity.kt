@@ -62,6 +62,14 @@ class MainActivity : ComponentActivity() {
     private var petDistance = 0f
     private var lastPetReact = 0L
     private var lastStatusLog = 0L
+    private var lastSpeechEnd = 0L
+    private var lastMove = "-"
+
+    private fun similar(a: String, b: String): Boolean {
+        val n = { x: String -> x.lowercase(Locale("tr", "TR")).replace(Regex("[^a-zçğıöşü ]"), "").trim() }
+        val x = n(a); val y = n(b)
+        return x.isNotEmpty() && (y.contains(x) || x.contains(y))
+    }
 
     private var camStatus = "bekliyor"
     private var voiceStatus = "bekliyor"
@@ -83,7 +91,11 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private val wakeWords = listOf("volt", "bolt", "vold", "valt", "robot")
+    // Ses modeli "Volt"u çoğu zaman "bot" diye duyuyor, o yüzden benzerleri de kabul
+    private val wakeStarts = listOf("volt", "bolt", "vold", "valt", "robot")
+    private val wakeExact = setOf("bot", "vot", "bolt", "volt", "polt", "mot")
+    private fun isWake(w: String) = w in wakeExact || wakeStarts.any { w.startsWith(it) }
+    private var askedQuestion = false
 
     private val permLauncher = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { res ->
         if (res[Manifest.permission.CAMERA] == true) startCamera() else camStatus = "İZİN YOK"
@@ -97,15 +109,26 @@ class MainActivity : ComponentActivity() {
         hideSystemBars()
 
         motors = SimulatedMotors { label ->
+            // Hareket yazıları sadece test panelinde görünür (gövde takılınca motorlar yapacak)
+            if (label != null) lastMove = label
             moveLabel.text = label ?: ""
-            moveLabel.visibility = if (label == null) View.INVISIBLE else View.VISIBLE
+            moveLabel.visibility = if (label == null || debugText.visibility != View.VISIBLE) View.INVISIBLE else View.VISIBLE
         }
         seq = MoveSequencer(motors)
         brain = RuleBrain { batteryPercent() }
         speaker = Speaker(this,
             onStatus = { ttsStatus = it },
             onStart = { voice?.pause(true) },
-            onDone = { main.postDelayed({ if (!speaker.speaking) voice?.pause(false) }, 350) }
+            onDone = {
+                lastSpeechEnd = SystemClock.uptimeMillis()
+                main.postDelayed({
+                    if (!speaker.speaking) {
+                        voice?.pause(false)
+                        // Robot soru sorduysa cevabı "Volt" demeden dinle
+                        if (askedQuestion) { askedQuestion = false; startListeningWindow(quiet = true) }
+                    }
+                }, 350)
+            }
         )
         body = BodySensors(this) { onBodyEvent(it) }
 
@@ -115,7 +138,7 @@ class MainActivity : ComponentActivity() {
 
         main.post(tick)
         ContextCompat.registerReceiver(this, testReceiver, IntentFilter("com.voltcu.robot.TEST"), ContextCompat.RECEIVER_EXPORTED)
-        log("Volt başladı v0.2")
+        log("Volt başladı v0.3")
     }
 
     // ---------------- Arayüz ----------------
@@ -213,6 +236,7 @@ class MainActivity : ComponentActivity() {
 
     // ---------------- Konuşma ----------------
     private fun say(text: String, e: Emotion? = null) {
+        askedQuestion = text.trim().endsWith("?")
         log("SÖYLE: $text")
         lastSaid = text
         subtitle.text = "Volt: $text"
@@ -220,11 +244,11 @@ class MainActivity : ComponentActivity() {
         speaker.say(text)
     }
 
-    private fun startListeningWindow() {
+    private fun startListeningWindow(quiet: Boolean = false) {
         listeningUntil = SystemClock.uptimeMillis() + 7000
         face.emotion = Emotion.LISTENING
         face.blink()
-        subtitle.text = "Dinliyorum…"
+        if (!quiet) subtitle.text = "Dinliyorum…"
     }
 
     private fun onHeard(raw: String) {
@@ -232,7 +256,9 @@ class MainActivity : ComponentActivity() {
         if (speaker.speaking) return
         val text = raw.lowercase(Locale("tr", "TR"))
         val words = text.split(" ")
-        val wakeIdx = words.indexOfFirst { w -> wakeWords.any { w.startsWith(it) } }
+        // Kendi sesinin yankısını yok say
+        if (SystemClock.uptimeMillis() - lastSpeechEnd < 1500 && similar(text, lastSaid)) { log("Yankı yok sayıldı"); return }
+        val wakeIdx = words.indexOfFirst { isWake(it) }
 
         if (wakeIdx >= 0) {
             if (sleeping) wakeUp(silent = true)
@@ -407,14 +433,14 @@ class MainActivity : ComponentActivity() {
             "VAR (${f.count}) x=%.2f y=%.2f boyut=%.2f gülüş=%s".format(f.nx, f.ny, f.size, f.smile?.let { "%.2f".format(it) } ?: "-")
         else "yok"
         return buildString {
-            appendLine("── VOLT SİSTEM TESTİ v0.2 ──")
+            appendLine("── VOLT SİSTEM TESTİ v0.3 ──")
             appendLine("Kamera     : $camStatus  (%.1f fps)".format(tracker?.fps ?: 0f))
             appendLine("Yüz        : $faceLine")
             appendLine("Ses tanıma : $voiceStatus")
             appendLine("Dinleme    : ${if (isListening()) "AÇIK" else "uyandırma kelimesi bekleniyor"}")
             appendLine("Konuşma    : $ttsStatus")
             appendLine("Sensör     : ${if (body.available) "ivme ölçer OK" else "YOK"}  |a|=%.1f  son: ${body.lastEvent}".format(body.magnitude))
-            appendLine("Motor      : ${motors.name}")
+            appendLine("Motor      : ${motors.name}  son: $lastMove")
             appendLine("Takip modu : ${if (followMode) "açık" else "kapalı"}   Uyku: ${if (sleeping) "evet" else "hayır"}")
             appendLine("Pil        : %${batteryPercent()}")
             appendLine("Duydu      : $lastHeard")
