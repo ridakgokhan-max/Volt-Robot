@@ -45,6 +45,8 @@ class MainActivity : ComponentActivity() {
     private lateinit var people: PeopleMemory
     private lateinit var social: Social
     private var recognizer: FaceRecognizer? = null
+    private var wiki: Wiki? = null
+    private val wikiExec = java.util.concurrent.Executors.newSingleThreadExecutor()
     private var llmStatus = "bekliyor"
     private var tracker: FaceTracker? = null
     private lateinit var body: BodySensors
@@ -98,6 +100,7 @@ class MainActivity : ComponentActivity() {
             i.getStringExtra("emotion")?.let { e -> runCatching { feel(Emotion.valueOf(e), 3000) } }
             if (i.hasExtra("people")) log("KİŞİLER: " + people.people.joinToString(" | ") { p -> "${p.name} (sahibi=${p.owner}, ${p.samples.size} örnek, ${p.visits} ziyaret) ${p.facts}" })
             if (i.hasExtra("forget_all")) { people.people.toList().forEach { people.remove(it) }; log("KİŞİLER silindi") }
+            i.getStringExtra("wiki")?.let { q -> val tp = wiki?.topicOf(q) ?: q; log("TEST VİKİ: $q → konu '$tp'"); askWiki(tp, q) }
             i.getStringExtra("ask")?.let { log("TEST YZ: $it"); askLlm(it) }
             if (i.hasExtra("status")) log("DURUM " + statusText().replace("\n", " | "))
         }
@@ -161,6 +164,13 @@ class MainActivity : ComponentActivity() {
         })
         Thread { recognizer = FaceRecognizer(this).also { r -> log(if (r.ready) "Yüz tanıma hazır, ${people.people.size} kişi kayıtlı" else "Yüz tanıma YOK: ${r.error}") } }.start()
 
+        // Vikipedi: telefonda Android/data/com.voltcu.robot/files/wiki/tr.zim
+        wikiExec.execute {
+            val w = Wiki(java.io.File(java.io.File(getExternalFilesDir(null), "wiki"), "tr.zim"))
+            w.open(); wiki = w
+            main.post { log("Vikipedi: ${w.status}") }
+        }
+
         personality = Personality(object : Personality.Host {
             override val face get() = this@MainActivity.face
             override fun now() = SystemClock.uptimeMillis()
@@ -185,7 +195,7 @@ class MainActivity : ComponentActivity() {
 
         main.post(tick)
         ContextCompat.registerReceiver(this, testReceiver, IntentFilter("com.voltcu.robot.TEST"), ContextCompat.RECEIVER_EXPORTED)
-        log("Volt başladı v0.8")
+        log("Volt başladı v0.9")
     }
 
     // ---------------- Arayüz ----------------
@@ -369,6 +379,9 @@ class MainActivity : ComponentActivity() {
             null -> {}
         }
         if (reply.moves.isNotEmpty()) seq.play(*reply.moves.toTypedArray())
+        // Bilgi sorusu mu? Önce Vikipedi'ye bak (anında ve doğru)
+        val topic = if (reply.fallback && wiki?.ready == true) wiki?.topicOf(text) else null
+        if (topic != null) { askWiki(topic, text); return }
         if (reply.fallback && llm?.state == LlmEngine.State.READY) {
             val q = lastRobotQuestion
             val ctx = if (q != null && SystemClock.uptimeMillis() - lastRobotQuestionAt < 30_000) "(Az önce ben ona şunu sordum: \"$q\") $text" else text
@@ -379,6 +392,29 @@ class MainActivity : ComponentActivity() {
             say("Daha yeni uyandım, beynim ısınıyor. Bir dakika sonra tekrar sorar mısın?", Emotion.SLEEPY); return
         }
         main.postDelayed({ say(reply.text, reply.emotion) }, 150)
+    }
+
+    /** Vikipedi'den cevap: bulursa okur, bulamazsa yapay zekâya sorar */
+    private fun askWiki(topic: String, original: String) {
+        face.emotion = Emotion.THINKING
+        tempEmotionUntil = SystemClock.uptimeMillis() + 15_000
+        val started = SystemClock.uptimeMillis()
+        wikiExec.execute {
+            val r = wiki?.lookup(topic)
+            main.post {
+                val ms = SystemClock.uptimeMillis() - started
+                if (r != null) {
+                    log("VİKİPEDİ: '$topic' → ${r.first} (${ms} ms)")
+                    tempEmotionUntil = 0
+                    say(listOf("Hatırladım!", "Bildiğim kadarıyla,", "Bak şimdi:").random() + " " + r.second, Emotion.PROUD)
+                } else {
+                    log("VİKİPEDİ: '$topic' bulunamadı (${ms} ms), yapay zekâya soruluyor")
+                    tempEmotionUntil = 0
+                    if (llm?.state == LlmEngine.State.READY) askLlm(original)
+                    else say("Bunu bilmiyorum, kütüphanemde de bulamadım.", Emotion.SAD)
+                }
+            }
+        }
     }
 
     /** Kuralların bilmediği soruları yapay zekâ cevaplar (internetsiz, telefonda) */
@@ -557,7 +593,7 @@ class MainActivity : ComponentActivity() {
             "VAR (${f.count}) x=%.2f y=%.2f boyut=%.2f gülüş=%s".format(f.nx, f.ny, f.size, f.smile?.let { "%.2f".format(it) } ?: "-")
         else "yok"
         return buildString {
-            appendLine("── VOLT SİSTEM TESTİ v0.8 ──")
+            appendLine("── VOLT SİSTEM TESTİ v0.9 ──")
             appendLine("Kamera     : $camStatus  (%.1f fps)".format(tracker?.fps ?: 0f))
             appendLine("Yüz        : $faceLine")
             appendLine("Ses tanıma : $voiceStatus")
@@ -567,6 +603,7 @@ class MainActivity : ComponentActivity() {
             appendLine("Sensör     : ${if (body.available) "ivme ölçer OK" else "YOK"}  |a|=%.1f  son: ${body.lastEvent}".format(body.magnitude))
             appendLine("Motor      : ${motors.name}  son: $lastMove")
             appendLine("Tanıdığı   : ${if (recognizer?.ready == true) social.status() else "yüz tanıma kapalı"}")
+            appendLine("Vikipedi   : ${wiki?.status ?: "yükleniyor"}")
             appendLine("Ruh hali   : ${personality.mood.label}  son: ${personality.lastAction}")
             appendLine("Takip modu : ${if (followMode) "açık" else "kapalı"}   Uyku: ${if (sleeping) "evet" else "hayır"}")
             appendLine("Pil        : %${batteryPercent()}")

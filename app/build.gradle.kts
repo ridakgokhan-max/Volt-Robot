@@ -11,8 +11,8 @@ android {
         applicationId = "com.voltcu.robot"
         minSdk = 26
         targetSdk = 34
-        versionCode = 12
-        versionName = "0.8.4"
+        versionCode = 13
+        versionName = "0.9"
         ndk { abiFilters += listOf("arm64-v8a") }
         externalNativeBuild {
             cmake {
@@ -69,6 +69,8 @@ dependencies {
     implementation("com.google.mlkit:face-detection:16.1.7")
     // Yüz tanıma (kim olduğunu bilme) - internetsiz
     implementation("org.tensorflow:tensorflow-lite:2.16.1")
+    // Vikipedi (Kiwix ZIM) okuyucu - internetsiz
+    implementation("org.kiwix:libkiwix:2.+")
 
     // İnternetsiz Türkçe konuşma tanıma
     implementation("com.alphacephei:vosk-android:0.3.47@aar")
