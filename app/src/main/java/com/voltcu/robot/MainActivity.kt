@@ -389,6 +389,7 @@ class MainActivity : ComponentActivity() {
         if (engine.busy) { say("Bir saniye, hâlâ düşünüyorum.", Emotion.THINKING); return }
         lastInteraction = SystemClock.uptimeMillis()
         tracker?.paused = true
+        tracker?.stop()   // kamerayı tamamen kapat: işlemci ve ısı yapay zekâya kalsın
         voice?.pause(true)
         face.emotion = Emotion.THINKING
         tempEmotionUntil = SystemClock.uptimeMillis() + 120_000
@@ -407,6 +408,7 @@ class MainActivity : ComponentActivity() {
             onDone = { n ->
                 log("YZ bitti: $n token, ${(SystemClock.uptimeMillis() - started) / 1000} sn")
                 tracker?.paused = false
+                tracker?.start()
                 tempEmotionUntil = SystemClock.uptimeMillis() + 1500
                 if (first) say("Hmm, aklıma bir şey gelmedi.", Emotion.SAD)
                 if (!speaker.speaking) voice?.pause(false)

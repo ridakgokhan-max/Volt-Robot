@@ -79,7 +79,7 @@ class FaceTracker(
         if (paused) { proxy.close(); return }
         val now = SystemClock.uptimeMillis()
         // Saniyede ~10 kare yeter, telefon ısınmasın
-        if (now - lastFrame < 90) { proxy.close(); return }
+        if (now - lastFrame < 160) { proxy.close(); return }
         if (lastFrame > 0) fps = fps * 0.8f + 0.2f * (1000f / (now - lastFrame))
         lastFrame = now
 

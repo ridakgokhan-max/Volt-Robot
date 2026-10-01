@@ -51,7 +51,7 @@ class Social(private val people: PeopleMemory, private val host: Host) {
     fun inDialog() = step != null
 
     /** Yüz tanıma karesi istensin mi (saniyede ~1 kez yeter) */
-    fun wantsEmbedding(): Boolean = host.now() - lastEmbAt > 900 && !host.isSleeping()
+    fun wantsEmbedding(): Boolean = host.now() - lastEmbAt > 1500 && !host.isSleeping()
 
     fun onEmbedding(emb: FloatArray) {
         val now = host.now()
@@ -82,7 +82,8 @@ class Social(private val people: PeopleMemory, private val host: Host) {
     /** Her saniye: ziyaret bitti mi, sohbet zaman aşımı */
     fun tick() {
         val now = host.now()
-        if (host.faceVisible()) absentSince = 0L
+        // Robot düşünürken kamera kapalı; bu süre "gitti" sayılmasın
+        if (host.faceVisible() || host.isBusy()) absentSince = 0L
         else {
             if (absentSince == 0L) absentSince = now
             if (now - absentSince > 20_000 && (current != null || greetedThisVisit || visitDeclined)) {

@@ -92,16 +92,16 @@ class LlmEngine(private val modelFile: File, private val onStatus: (String) -> U
                         val s = clean(buffer.substring(0, idx + 1))
                         buffer = StringBuilder(buffer.substring(idx + 1))
                         if (s.isNotBlank()) { sentences++; main.post { onSentence(s) } }
-                        if (sentences >= 3) return false
+                        if (sentences >= 2) return false
                     }
                     return true
                 }
             }
-            val n = try { llm.nativeGenerate(prompt, 120, sink, keep) } catch (e: Throwable) { -9 }
+            val n = try { llm.nativeGenerate(prompt, 80, sink, keep) } catch (e: Throwable) { -9 }
             hasHistory = n > 0
             lastTurnEnd = System.currentTimeMillis()
             val rest = clean(buffer.toString())
-            if (rest.isNotBlank() && sentences < 3) main.post { onSentence(rest) }
+            if (rest.isNotBlank() && sentences < 2) main.post { onSentence(rest) }
             Log.i("VoltRobot", "YZ cevap: ${String(bytes.toByteArray(), Charsets.UTF_8)}")
             busy = false
             main.post { onDone(n) }
