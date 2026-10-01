@@ -1,4 +1,4 @@
-name: llama.cpp Android (Mi 6 testi)
+name: llama.cpp Android (Mi 6 testi) v2
 on:
   push:
     branches: [main]
@@ -26,9 +26,7 @@ jobs:
             -DBUILD_SHARED_LIBS=OFF -DGGML_OPENMP=OFF -DGGML_NATIVE=OFF \
             -DGGML_CPU_ARM_ARCH=armv8-a \
             -DLLAMA_CURL=OFF -DLLAMA_BUILD_SERVER=OFF -DLLAMA_BUILD_TESTS=OFF 2>&1 | tee ../llama_build.log
-          cmake --build build-android -j4 --target llama-bench llama-cli 2>&1 | tee -a ../llama_build.log
-          cmake --build build-android -j4 --target llama-completion 2>&1 | tee -a ../llama_build.log || true
-          cmake --build build-android -j4 --target llama-simple 2>&1 | tee -a ../llama_build.log || true
+          cmake --build build-android -j4 --target llama-bench llama-completion llama-simple 2>&1 | tee -a ../llama_build.log
           git log -1 --format="%H %cd" > ../llama_version.txt
       - name: Sonucu llama-bin dalina koy
         if: always()
