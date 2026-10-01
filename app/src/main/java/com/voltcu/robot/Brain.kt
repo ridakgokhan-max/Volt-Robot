@@ -36,7 +36,8 @@ class RuleBrain(private val battery: () -> Int, private val seesFace: () -> Bool
         "Benim en sevdiğim müzik türü ne biliyor musun? Heavy metal! Sonuçta ben de metalim."
     )
 
-    private fun has(t: String, vararg keys: String) = keys.any { t.contains(it) }
+    // Anahtar kelime ancak bir kelimenin BAŞINDA geçerse sayılır
+    private fun has(t: String, vararg keys: String) = keys.any { " $t".contains(" $it") }
     private fun word(t: String, w: String) = t.split(" ").contains(w)
 
     override fun think(input: String): Reply {

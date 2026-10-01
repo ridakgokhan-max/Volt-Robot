@@ -90,7 +90,7 @@ extern "C" JNIEXPORT void JNICALL
 Java_com_voltcu_robot_VoltLlm_nativeStop(JNIEnv *, jobject) { g_stop = true; }
 
 extern "C" JNIEXPORT jint JNICALL
-Java_com_voltcu_robot_VoltLlm_nativeGenerate(JNIEnv *env, jobject, jstring juser, jint maxTokens, jobject sink) {
+Java_com_voltcu_robot_VoltLlm_nativeGenerate(JNIEnv *env, jobject, jstring juser, jint maxTokens, jobject sink, jboolean keep) {
     if (!g_ctx) return -1;
     g_stop = false;
     jclass cls = env->GetObjectClass(sink);
@@ -101,12 +101,20 @@ Java_com_voltcu_robot_VoltLlm_nativeGenerate(JNIEnv *env, jobject, jstring juser
     env->ReleaseStringUTFChars(juser, uc);
 
     int64_t t0 = llama_time_us();
-    llama_memory_clear(llama_get_memory(g_ctx), true);
-    if (llama_state_seq_set_data(g_ctx, g_sys_state.data(), g_sys_state.size(), 0) == 0) {
-        LOGE("sistem durumu geri yuklenemedi");
-        return -2;
-    }
     std::vector<llama_token> ut = tokenize(user, false);
+    llama_memory_t mem = llama_get_memory(g_ctx);
+    int used = (int) llama_memory_seq_pos_max(mem, 0) + 1;
+    bool fits = used + (int) ut.size() + maxTokens + 8 < (int) llama_n_ctx(g_ctx);
+    if (!keep || !fits) {
+        llama_memory_clear(mem, true);
+        if (llama_state_seq_set_data(g_ctx, g_sys_state.data(), g_sys_state.size(), 0) == 0) {
+            LOGE("sistem durumu geri yuklenemedi");
+            return -2;
+        }
+        LOGI("yeni sohbet (keep=%d, dolu=%d)", (int) keep, used);
+    } else {
+        LOGI("sohbete devam, hafizada %d token", used);
+    }
     if (!decode_all(ut)) { LOGE("soru islenemedi"); return -3; }
     int64_t t1 = llama_time_us();
 

@@ -99,9 +99,12 @@ class MainActivity : ComponentActivity() {
 
     // Ses modeli "Volt"u çoğu zaman "bot" diye duyuyor, o yüzden benzerleri de kabul
     private val wakeStarts = listOf("volt", "bolt", "vold", "valt", "robot")
-    private val wakeExact = setOf("bot", "vot", "bolt", "volt", "polt", "mot", "bol", "volta", "bold")
+    private val wakeExact = setOf("bot", "vot", "bolt", "volt", "polt", "mot", "bol", "volta", "bold", "bal", "val", "vol", "boldu")
     private fun isWake(w: String) = w in wakeExact || wakeStarts.any { w.startsWith(it) }
     private var askedQuestion = false
+    /** Robotun kendiliğinden sorduğu son soru (cevabı yapay zekâya bağlamıyla gitsin diye) */
+    private var lastRobotQuestion: String? = null
+    private var lastRobotQuestionAt = 0L
 
     private val permLauncher = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { res ->
         if (res[Manifest.permission.CAMERA] == true) startCamera() else camStatus = "İZİN YOK"
@@ -131,7 +134,10 @@ class MainActivity : ComponentActivity() {
                     if (!speaker.speaking && llm?.busy != true) {
                         voice?.pause(false)
                         // Robot soru sorduysa cevabı "Volt" demeden dinle
-                        if (askedQuestion) { askedQuestion = false; startListeningWindow(quiet = true) }
+                        // Robot konuştuktan sonra kısa süre "Volt" demeden cevap verilebilir (sohbet akışı)
+                        val window = if (askedQuestion) 9000L else 6000L
+                        askedQuestion = false
+                        if (!sleeping) { listeningUntil = SystemClock.uptimeMillis() + window; if (face.emotion != Emotion.LISTENING && SystemClock.uptimeMillis() > tempEmotionUntil) face.emotion = Emotion.LISTENING }
                     }
                 }, 350)
             }
@@ -162,7 +168,7 @@ class MainActivity : ComponentActivity() {
 
         main.post(tick)
         ContextCompat.registerReceiver(this, testReceiver, IntentFilter("com.voltcu.robot.TEST"), ContextCompat.RECEIVER_EXPORTED)
-        log("Volt başladı v0.6")
+        log("Volt başladı v0.7")
     }
 
     // ---------------- Arayüz ----------------
@@ -262,6 +268,7 @@ class MainActivity : ComponentActivity() {
     // ---------------- Konuşma ----------------
     private fun say(text: String, e: Emotion? = null) {
         askedQuestion = text.trim().endsWith("?")
+        if (askedQuestion) { lastRobotQuestion = text; lastRobotQuestionAt = SystemClock.uptimeMillis() }
         log("SÖYLE: $text")
         lastSaid = text
         subtitle.text = "Volt: $text"
@@ -301,7 +308,21 @@ class MainActivity : ComponentActivity() {
         if (isListening()) {
             lastHeard = text
             handleCommand(text)
+            return
         }
+        // Biri robota bakıyorsa "Volt" demeden de konuşulabilir
+        if (!sleeping && isLookedAt()) {
+            log("Yüzüne bakılarak konuşuldu, uyandırma kelimesi gerekmedi")
+            lastHeard = text
+            handleCommand(text)
+        }
+    }
+
+    /** Biri şu an kameranın önünde ve robota dönük mü */
+    private fun isLookedAt(): Boolean {
+        val f = lastFace ?: return false
+        val fresh = SystemClock.uptimeMillis() - lastFaceSeen < 1500
+        return fresh && faceVisible && kotlin.math.abs(f.nx) < 0.65f && f.size > 0.08f
     }
 
     private fun handleCommand(text: String) {
@@ -318,7 +339,15 @@ class MainActivity : ComponentActivity() {
             null -> {}
         }
         if (reply.moves.isNotEmpty()) seq.play(*reply.moves.toTypedArray())
-        if (reply.fallback && llm?.state == LlmEngine.State.READY) { askLlm(text); return }
+        if (reply.fallback && llm?.state == LlmEngine.State.READY) {
+            val q = lastRobotQuestion
+            val ctx = if (q != null && SystemClock.uptimeMillis() - lastRobotQuestionAt < 30_000) "(Az önce ben ona şunu sordum: \"$q\") $text" else text
+            lastRobotQuestion = null
+            askLlm(ctx); return
+        }
+        if (reply.fallback && llm?.state == LlmEngine.State.LOADING) {
+            say("Daha yeni uyandım, beynim ısınıyor. Bir dakika sonra tekrar sorar mısın?", Emotion.SLEEPY); return
+        }
         main.postDelayed({ say(reply.text, reply.emotion) }, 150)
     }
 
@@ -494,7 +523,7 @@ class MainActivity : ComponentActivity() {
             "VAR (${f.count}) x=%.2f y=%.2f boyut=%.2f gülüş=%s".format(f.nx, f.ny, f.size, f.smile?.let { "%.2f".format(it) } ?: "-")
         else "yok"
         return buildString {
-            appendLine("── VOLT SİSTEM TESTİ v0.6 ──")
+            appendLine("── VOLT SİSTEM TESTİ v0.7 ──")
             appendLine("Kamera     : $camStatus  (%.1f fps)".format(tracker?.fps ?: 0f))
             appendLine("Yüz        : $faceLine")
             appendLine("Ses tanıma : $voiceStatus")

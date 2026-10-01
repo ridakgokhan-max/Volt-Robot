@@ -15,7 +15,7 @@ class VoltLlm {
     interface Sink { fun onBytes(b: ByteArray): Boolean }
 
     external fun nativeLoad(path: String, sys: String, threads: Int, nctx: Int): Boolean
-    external fun nativeGenerate(user: String, maxTokens: Int, sink: Sink): Int
+    external fun nativeGenerate(user: String, maxTokens: Int, sink: Sink, keep: Boolean): Int
     external fun nativeStop()
 
     val available get() = libOk
@@ -37,13 +37,18 @@ class LlmEngine(private val modelFile: File, private val onStatus: (String) -> U
     @Volatile var busy = false
         private set
 
-    private val system = "Sen Volt adında küçük, meraklı ve sevimli bir ev robotusun. Seni Kadir yaptı. " +
-            "Paletlerin, bir kolun ve ekranında gözlerin var. Her zaman Türkçe konuşursun. " +
-            "Cevapların kısa olur: en fazla 2-3 cümle. Emoji, liste veya işaret kullanmazsın, çünkü cevabın sesli okunur. " +
-            "Karşındakine her zaman 'sen' diye hitap edersin, samimi ve neşelisin. " +
-            "Asla yapay zekâ, dil modeli veya eğitim verisi olduğundan bahsetmezsin; sen bir robotsun. " +
-            "'Başka sorunuz var mı' gibi asistan cümleleri kurmazsın. " +
-            "Bilmediğin bir şeyi uydurmazsın, bilmiyorsan dürüstçe söylersin."
+    private val system = "Sen Volt adında küçük, meraklı, neşeli ve biraz şakacı bir ev robotusun. Seni Kadir yaptı ve Kadir'i çok seversin. " +
+            "Paletlerin, bir kolun ve ekranında ifadeli gözlerin var. Her zaman Türkçe konuşursun ve karşındakine 'sen' dersin. " +
+            "Cevapların kısa olur: en fazla 2-3 cümle. Emoji, liste veya işaret kullanmazsın çünkü cevabın sesli okunur. " +
+            "Sen bir robotsun; yapay zekâ, dil modeli, asistan veya eğitim verisi olduğundan asla bahsetmezsin. " +
+            "'Nasıl yardımcı olabilirim' gibi asistan cümleleri kurmazsın. Hikâye, fıkra, oyun istenirse kısa ve eğlenceli bir tane uydurursun. " +
+            "Karşındaki üzgünse onu teselli edersin. Gerçek bilgi sorularında bilmediğini uydurmazsın, dürüstçe bilmediğini söylersin."
+
+    /** Son konuşma ne zaman bitti: 90 sn içinde gelen soru aynı sohbetin devamı sayılır */
+    @Volatile private var lastTurnEnd = 0L
+    @Volatile private var hasHistory = false
+
+    fun newConversation() { hasHistory = false }
 
     fun load() {
         if (!llm.available) { state = State.ERROR; onStatus("Yapay zekâ kütüphanesi yüklenemedi"); return }
@@ -65,7 +70,9 @@ class LlmEngine(private val modelFile: File, private val onStatus: (String) -> U
         if (state != State.READY || busy) { onDone(-1); return }
         busy = true
         exec.execute {
-            val prompt = "<|im_start|>user\n$question<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n"
+            val keep = hasHistory && System.currentTimeMillis() - lastTurnEnd < 90_000
+            val turn = "<|im_start|>user\n$question<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n"
+            val prompt = if (keep) "<|im_end|>\n$turn" else turn
             val bytes = java.io.ByteArrayOutputStream()
             var buffer = StringBuilder()
             var sentences = 0
@@ -85,7 +92,9 @@ class LlmEngine(private val modelFile: File, private val onStatus: (String) -> U
                     return true
                 }
             }
-            val n = try { llm.nativeGenerate(prompt, 120, sink) } catch (e: Throwable) { -9 }
+            val n = try { llm.nativeGenerate(prompt, 120, sink, keep) } catch (e: Throwable) { -9 }
+            hasHistory = n > 0
+            lastTurnEnd = System.currentTimeMillis()
             val rest = clean(buffer.toString())
             if (rest.isNotBlank() && sentences < 3) main.post { onSentence(rest) }
             Log.i("VoltRobot", "YZ cevap: ${String(bytes.toByteArray(), Charsets.UTF_8)}")
