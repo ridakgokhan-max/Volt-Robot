@@ -11,8 +11,8 @@ android {
         applicationId = "com.voltcu.robot"
         minSdk = 26
         targetSdk = 34
-        versionCode = 7
-        versionName = "0.7"
+        versionCode = 8
+        versionName = "0.8"
         ndk { abiFilters += listOf("arm64-v8a") }
         externalNativeBuild {
             cmake {
@@ -46,6 +46,8 @@ android {
         }
     }
 
+    androidResources { noCompress += "tflite" }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -65,6 +67,8 @@ dependencies {
 
     // Yüz algılama - modeli uygulamanın içinde, internet gerektirmez
     implementation("com.google.mlkit:face-detection:16.1.7")
+    // Yüz tanıma (kim olduğunu bilme) - internetsiz
+    implementation("org.tensorflow:tensorflow-lite:2.16.1")
 
     // İnternetsiz Türkçe konuşma tanıma
     implementation("com.alphacephei:vosk-android:0.3.47@aar")

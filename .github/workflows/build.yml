@@ -24,6 +24,13 @@ jobs:
           unzip -q model.zip -d modeltmp
           mv modeltmp/* app/src/main/assets/model-tr
           ls -la app/src/main/assets/model-tr
+      - name: Yuz tanima modeli (MobileFaceNet) indir
+        run: |
+          curl -fsSL -o app/src/main/assets/mobile_face_net.tflite https://github.com/estebanuri/face_recognition/raw/master/android/face-recognition/app/src/main/assets/mobile_face_net.tflite
+          ls -la app/src/main/assets/mobile_face_net.tflite
+          pip install -q ai-edge-litert 2>/dev/null && python3 -c "
+          from ai_edge_litert.interpreter import Interpreter
+          i=Interpreter('app/src/main/assets/mobile_face_net.tflite'); print('GIRIS',i.get_input_details()[0]['shape'],i.get_input_details()[0]['dtype'],'CIKIS',i.get_output_details()[0]['shape'])" || true
       - name: llama.cpp (yapay zeka motoru) indir
         run: |
           git clone https://github.com/ggml-org/llama.cpp app/src/main/cpp/llama.cpp

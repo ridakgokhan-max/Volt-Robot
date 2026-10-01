@@ -42,6 +42,9 @@ class MainActivity : ComponentActivity() {
     private var voice: VoiceInput? = null
     private var llm: LlmEngine? = null
     private lateinit var personality: Personality
+    private lateinit var people: PeopleMemory
+    private lateinit var social: Social
+    private var recognizer: FaceRecognizer? = null
     private var llmStatus = "bekliyor"
     private var tracker: FaceTracker? = null
     private lateinit var body: BodySensors
@@ -65,6 +68,7 @@ class MainActivity : ComponentActivity() {
     private var petDistance = 0f
     private var lastPetReact = 0L
     private var lastStatusLog = 0L
+    private var lastSocialTick = 0L
     private var lastSpeechEnd = 0L
     private var lastMove = "-"
 
@@ -92,6 +96,8 @@ class MainActivity : ComponentActivity() {
             if (i.hasExtra("pet")) onPetted()
             i.getStringExtra("gesture")?.let { g -> runCatching { face.play(Gesture.valueOf(g)) } }
             i.getStringExtra("emotion")?.let { e -> runCatching { feel(Emotion.valueOf(e), 3000) } }
+            if (i.hasExtra("people")) log("KİŞİLER: " + people.people.joinToString(" | ") { p -> "${p.name} (sahibi=${p.owner}, ${p.samples.size} örnek, ${p.visits} ziyaret) ${p.facts}" })
+            if (i.hasExtra("forget_all")) { people.people.toList().forEach { people.remove(it) }; log("KİŞİLER silindi") }
             i.getStringExtra("ask")?.let { log("TEST YZ: $it"); askLlm(it) }
             if (i.hasExtra("status")) log("DURUM " + statusText().replace("\n", " | "))
         }
@@ -144,6 +150,17 @@ class MainActivity : ComponentActivity() {
         )
         body = BodySensors(this) { onBodyEvent(it) }
 
+        people = PeopleMemory(this)
+        social = Social(people, object : Social.Host {
+            override fun now() = SystemClock.uptimeMillis()
+            override fun say(text: String, e: Emotion?) { this@MainActivity.say(text, e) }
+            override fun isBusy() = speaker.speaking || llm?.busy == true
+            override fun isSleeping() = sleeping
+            override fun faceVisible() = faceVisible
+            override fun log(msg: String) { this@MainActivity.log(msg) }
+        })
+        Thread { recognizer = FaceRecognizer(this).also { r -> log(if (r.ready) "Yüz tanıma hazır, ${people.people.size} kişi kayıtlı" else "Yüz tanıma YOK: ${r.error}") } }.start()
+
         personality = Personality(object : Personality.Host {
             override val face get() = this@MainActivity.face
             override fun now() = SystemClock.uptimeMillis()
@@ -151,7 +168,7 @@ class MainActivity : ComponentActivity() {
             override fun lastFaceSeen() = lastFaceSeen
             override fun lastInteraction() = lastInteraction
             override fun isSleeping() = sleeping
-            override fun isBusy() = speaker.speaking || isListening() || llm?.busy == true || seq.isBusy()
+            override fun isBusy() = speaker.speaking || isListening() || llm?.busy == true || seq.isBusy() || (::social.isInitialized && social.inDialog())
             override fun feel(e: Emotion, ms: Long) { this@MainActivity.feel(e, ms) }
             override fun mutter(text: String, e: Emotion?) { say(text, e) }
             override fun move(vararg steps: Pair<Move, Long>) { if (!sleeping) seq.play(*steps) }
@@ -168,7 +185,7 @@ class MainActivity : ComponentActivity() {
 
         main.post(tick)
         ContextCompat.registerReceiver(this, testReceiver, IntentFilter("com.voltcu.robot.TEST"), ContextCompat.RECEIVER_EXPORTED)
-        log("Volt başladı v0.7")
+        log("Volt başladı v0.8")
     }
 
     // ---------------- Arayüz ----------------
@@ -238,7 +255,14 @@ class MainActivity : ComponentActivity() {
     // ---------------- Başlatma ----------------
     private fun startCamera() {
         if (tracker != null) return
-        tracker = FaceTracker(this, this, { onFace(it) }, { camStatus = it }).also { it.start() }
+        tracker = FaceTracker(this, this, { onFace(it) }, { camStatus = it }).also { t ->
+            t.wantCrop = { recognizer?.ready == true && ::social.isInitialized && social.wantsEmbedding() }
+            t.onCrop = { bmp, _ ->
+                val emb = try { recognizer?.embed(bmp) } catch (e: Throwable) { null }
+                if (emb != null) main.post { social.onEmbedding(emb) }
+            }
+            t.start()
+        }
     }
 
     private fun startVoice() {
@@ -290,6 +314,8 @@ class MainActivity : ComponentActivity() {
         val words = text.split(" ")
         // Kendi sesinin yankısını yok say
         if (SystemClock.uptimeMillis() - lastSpeechEnd < 1500 && similar(text, lastSaid)) { log("Yankı yok sayıldı"); return }
+        // Tanışma sohbeti sürüyorsa her cevap ona gider ("Volt" gerekmez)
+        if (::social.isInitialized && social.inDialog()) { lastHeard = text; lastInteraction = SystemClock.uptimeMillis(); subtitle.text = "Sen: $text"; social.answer(text); return }
         val wakeIdx = words.indexOfFirst { isWake(it) }
 
         if (wakeIdx >= 0) {
@@ -329,6 +355,7 @@ class MainActivity : ComponentActivity() {
         listeningUntil = 0
         lastInteraction = SystemClock.uptimeMillis()
         subtitle.text = "Sen: $text"
+        if (social.intercept(text)) return
         val reply = brain.think(text)
         when (reply.action) {
             Action.SLEEP -> { say(reply.text, reply.emotion); main.postDelayed({ goToSleep() }, 2500); return }
@@ -341,7 +368,8 @@ class MainActivity : ComponentActivity() {
         if (reply.moves.isNotEmpty()) seq.play(*reply.moves.toTypedArray())
         if (reply.fallback && llm?.state == LlmEngine.State.READY) {
             val q = lastRobotQuestion
-            val ctx = if (q != null && SystemClock.uptimeMillis() - lastRobotQuestionAt < 30_000) "(Az önce ben ona şunu sordum: \"$q\") $text" else text
+            val who = social.context()?.let { "($it) " } ?: ""
+            val ctx = who + if (q != null && SystemClock.uptimeMillis() - lastRobotQuestionAt < 30_000) "(Az önce ben ona şunu sordum: \"$q\") $text" else text
             lastRobotQuestion = null
             askLlm(ctx); return
         }
@@ -455,7 +483,7 @@ class MainActivity : ComponentActivity() {
         face.lookAt(f.nx, f.ny * 0.8f)
 
         // Uzun süre sonra biri gelince selam ver
-        if (wasAbsentFor > 20_000 && now - lastGreet > 60_000 && !speaker.speaking) {
+        if (recognizer?.ready != true && wasAbsentFor > 20_000 && now - lastGreet > 60_000 && !speaker.speaking) {
             lastGreet = now
             lastInteraction = now
             say(listOf("Merhaba!", "Selam! Seni görüyorum.", "Hoş geldin!").random(), Emotion.HAPPY)
@@ -507,6 +535,7 @@ class MainActivity : ComponentActivity() {
             }
 
             personality.update()
+            if (now - lastSocialTick > 1000) { lastSocialTick = now; social.tick() }
 
             // 3 dakika kimse yoksa uyu
             if (!sleeping && !faceVisible && now - lastInteraction > 180_000 && now - lastFaceSeen > 180_000) goToSleep()
@@ -523,7 +552,7 @@ class MainActivity : ComponentActivity() {
             "VAR (${f.count}) x=%.2f y=%.2f boyut=%.2f gülüş=%s".format(f.nx, f.ny, f.size, f.smile?.let { "%.2f".format(it) } ?: "-")
         else "yok"
         return buildString {
-            appendLine("── VOLT SİSTEM TESTİ v0.7 ──")
+            appendLine("── VOLT SİSTEM TESTİ v0.8 ──")
             appendLine("Kamera     : $camStatus  (%.1f fps)".format(tracker?.fps ?: 0f))
             appendLine("Yüz        : $faceLine")
             appendLine("Ses tanıma : $voiceStatus")
@@ -532,6 +561,7 @@ class MainActivity : ComponentActivity() {
             appendLine("Yapay zekâ : $llmStatus${if (llm?.busy == true) " (düşünüyor)" else ""}")
             appendLine("Sensör     : ${if (body.available) "ivme ölçer OK" else "YOK"}  |a|=%.1f  son: ${body.lastEvent}".format(body.magnitude))
             appendLine("Motor      : ${motors.name}  son: $lastMove")
+            appendLine("Tanıdığı   : ${if (recognizer?.ready == true) social.status() else "yüz tanıma kapalı"}")
             appendLine("Ruh hali   : ${personality.mood.label}  son: ${personality.lastAction}")
             appendLine("Takip modu : ${if (followMode) "açık" else "kapalı"}   Uyku: ${if (sleeping) "evet" else "hayır"}")
             appendLine("Pil        : %${batteryPercent()}")

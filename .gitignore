@@ -6,3 +6,4 @@ local.properties
 .idea/
 app/src/main/assets/model-tr/
 app/src/main/cpp/llama.cpp/
+app/src/main/assets/mobile_face_net.tflite
