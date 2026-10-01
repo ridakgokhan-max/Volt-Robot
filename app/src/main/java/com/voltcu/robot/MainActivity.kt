@@ -350,7 +350,8 @@ class MainActivity : ComponentActivity() {
             return
         }
         // Biri robota bakıyorsa "Volt" demeden de konuşulabilir
-        if (!sleeping && isLookedAt()) {
+        // Tek kelimelik şeyler (TV, yan odadaki konuşma) robota söylenmiş sayılmasın
+        if (!sleeping && isLookedAt() && words.size >= 2) {
             log("Yüzüne bakılarak konuşuldu, uyandırma kelimesi gerekmedi")
             lastHeard = text
             handleCommand(text)
@@ -361,7 +362,7 @@ class MainActivity : ComponentActivity() {
     private fun isLookedAt(): Boolean {
         val f = lastFace ?: return false
         val fresh = SystemClock.uptimeMillis() - lastFaceSeen < 1500
-        return fresh && faceVisible && kotlin.math.abs(f.nx) < 0.65f && f.size > 0.08f
+        return fresh && faceVisible && kotlin.math.abs(f.nx) < 0.6f && f.size > 0.11f && kotlin.math.abs(f.yaw) < 25f
     }
 
     private fun handleCommand(text: String) {
