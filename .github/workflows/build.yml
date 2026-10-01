@@ -26,8 +26,15 @@ jobs:
           ls -la app/src/main/assets/model-tr
       - name: Yuz tanima modeli (MobileFaceNet) indir
         run: |
-          curl -fsSL -o app/src/main/assets/mobile_face_net.tflite https://github.com/estebanuri/face_recognition/raw/master/android/face-recognition/app/src/main/assets/mobile_face_net.tflite
-          ls -la app/src/main/assets/mobile_face_net.tflite
+          for u in \
+            https://github.com/estebanuri/face_recognition/raw/master/android/face-recognition/app/src/main/assets/mobile_face_net.tflite \
+            https://raw.githubusercontent.com/MCarlomagno/FaceRecognitionAuth/master/assets/mobilefacenet.tflite \
+            https://github.com/MCarlomagno/FaceRecognitionAuth/raw/master/assets/mobilefacenet.tflite \
+            https://github.com/sirius-ai/MobileFaceNet_TF/raw/master/arch/pretrained_model/MobileFaceNet_9925_9680.tflite ; do
+            echo "deneniyor: $u"
+            if curl -fsSL -o app/src/main/assets/mobile_face_net.tflite "$u"; then echo "INDI: $u"; break; fi
+          done
+          ls -la app/src/main/assets/ || true
           pip install -q ai-edge-litert 2>/dev/null && python3 -c "
           from ai_edge_litert.interpreter import Interpreter
           i=Interpreter('app/src/main/assets/mobile_face_net.tflite'); print('GIRIS',i.get_input_details()[0]['shape'],i.get_input_details()[0]['dtype'],'CIKIS',i.get_output_details()[0]['shape'])" || true
